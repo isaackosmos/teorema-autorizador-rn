@@ -1,0 +1,10 @@
+node_modules
+.expo
+dist
+android
+ios
+*.lock
+package-lock.json
+
+# Cópia fiel da análise do app legado — manter idêntica à do monorepo
+docs/analise-app-original.md

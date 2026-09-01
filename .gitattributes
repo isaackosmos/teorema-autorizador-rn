@@ -1,0 +1,15 @@
+# Normaliza tudo para LF no repositório. Os hooks do Husky são shell scripts e
+# quebram com CRLF; o resto do time roda Windows, então isso não é opcional.
+* text=auto eol=lf
+
+*.png binary
+*.jpg binary
+*.jpeg binary
+*.gif binary
+*.ico binary
+*.ttf binary
+*.otf binary
+*.woff binary
+*.woff2 binary
+*.keystore binary
+*.jks binary
