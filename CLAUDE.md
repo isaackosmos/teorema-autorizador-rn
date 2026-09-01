@@ -12,6 +12,10 @@ falhas conhecidas — está versionado aqui em
 [`docs/analise-app-original.md`](docs/analise-app-original.md).
 **Leia a análise antes de migrar qualquer tela**: ela diz o que preservar e o que não repetir.
 
+A ordem de ataque — blocos, fases e o que corrigir em cada tela — está em
+[`docs/plano-migracao.md`](docs/plano-migracao.md). O **status** de cada tela continua sendo o
+índice da §6 deste documento; o plano é o roteiro, não o placar.
+
 O app é um **cliente fino**. Nenhuma regra de negócio de verdade roda aqui: alçada, nível de
 autorização, reserva e situação de borderô são decididas no Orion Server. O app monta a
 requisição, traduz o payload e apresenta.
