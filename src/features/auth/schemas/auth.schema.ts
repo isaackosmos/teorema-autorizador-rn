@@ -8,14 +8,16 @@ import { z } from 'zod';
 
 export const loginResponseSchema = z
   .object({
-    JWT: z.string(),
+    // O Orion devolve o JWT num campo chamado `TOKEN` — não é typo, não
+    // "corrija" para `JWT`. Da borda para dentro o nome do domínio é `jwt`.
+    TOKEN: z.string(),
     USUARIO_ID: z.coerce.number(),
     USUARIO_CODIGO: z.string(),
     USUARIO_NOME: z.string().nullish(),
     DEVICE_STATUS: z.coerce.number().nullish(),
   })
   .transform((raw) => ({
-    jwt: raw.JWT,
+    jwt: raw.TOKEN,
     id: raw.USUARIO_ID,
     code: raw.USUARIO_CODIGO.padStart(3, '0'),
     name: raw.USUARIO_NOME ?? '',
