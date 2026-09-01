@@ -1,17 +1,19 @@
 /**
  * Preparo da senha para o `POST /v1/auth/login`.
  *
- * PENDENTE — decisão de servidor. O Orion hoje espera a senha em MD5 puro,
- * sem salt (docs/analise §7.1.9). Migrar o app sem migrar o servidor só
- * reproduziria a falha, então esta função ainda não tem implementação.
+ * A senha vai **em texto puro sobre TLS** e todo o hash é responsabilidade do
+ * Orion (Argon2id/bcrypt, do lado que guarda o dado). O app não faz nenhuma
+ * transformação criptográfica.
  *
- * Quando a decisão sair, só este arquivo muda:
- *  - se o servidor passar a aceitar a senha em claro sobre TLS + hash forte no
- *    backend (recomendado), devolva `password` direto;
- *  - se o MD5 for mantido no curto prazo, implemente o digest aqui.
+ * Decisão registrada em `docs/decisao-hash-senha.md` (bloqueio B1). O motivo de
+ * não hashear aqui: no contrato antigo o servidor aceitava o MD5 pronto, então
+ * o digest *era* a credencial — hashear no cliente é pass-the-hash, não
+ * proteção. Ver §3(2) e a opção C da tabela de alternativas.
+ *
+ * A função é mantida — em vez de `auth.api.ts` mandar `payload.password` direto —
+ * para que a decisão fique explícita no código e para haver um único ponto de
+ * mudança se o contrato do servidor mudar de novo.
  */
-export function preparePassword(_password: string): string {
-  throw new Error(
-    'Hash de senha ainda não definido — ver src/features/auth/lib/password.ts e CLAUDE.md (Decisões em aberto).',
-  );
+export function preparePassword(password: string): string {
+  return password;
 }

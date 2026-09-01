@@ -129,13 +129,14 @@ oferece "tentar de novo" sem reiniciar o app.
 
 #### A4 · Login — `(auth)/login` 🟨 🔒
 
-|          |                                                                                                             |
-| -------- | ----------------------------------------------------------------------------------------------------------- |
-| Origem   | `TFrmLoginBase` (aba Login)                                                                                 |
-| API      | `tenantApi` · `POST /v1/auth/login` (header `tokendatabase`)                                                |
-| Bloqueio | 🔒 **B1 — hash da senha.** `preparePassword()` lança de propósito; o login não funciona até a decisão sair. |
+|          |                                                                                                                                                                                                                                                                |
+| -------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Origem   | `TFrmLoginBase` (aba Login)                                                                                                                                                                                                                                    |
+| API      | `tenantApi` · `POST /v1/auth/login` (header `tokendatabase`)                                                                                                                                                                                                   |
+| Bloqueio | 🔒 **B1 — resolvido no app, pendente no servidor.** Decidido: senha em texto puro sobre TLS, hash no Orion. `preparePassword()` já é passthrough; o login real só funciona quando o novo contrato subir. Ver [`decisao-hash-senha.md`](decisao-hash-senha.md). |
 
-UI, schema e `useLogin` já existem. Falta o hash e o tratamento fino de erro.
+UI, schema, `useLogin` e o envio da senha já existem, e a resposta já é lida pelo campo correto
+(`TOKEN` → `jwt`). Falta o servidor aceitar o novo contrato de senha e o tratamento fino de erro.
 
 **Preservar** — `username` em maiúsculas; envio do `registerid`; `DEVICE_STATUS = 2` bloqueia o
 aparelho e persiste o bloqueio; sucesso persiste JWT + `USUARIO_ID` + `USUARIO_CODIGO`.
@@ -441,15 +442,15 @@ Confirmado na análise e reafirmado aqui para não voltar em revisão:
 
 Repetem as **Decisões em aberto** do `CLAUDE.md §7`, aqui amarradas ao bloco que travam.
 
-| 🔒  | Bloqueio                                         | Trava      | Impacto se não resolver                                                           |
-| --- | ------------------------------------------------ | ---------- | --------------------------------------------------------------------------------- |
-| B1  | Hash da senha (MD5 puro hoje)                    | A4         | **Login não funciona.** Bloqueio de maior prioridade — trava o app inteiro        |
-| B2  | Nativo ou web para compras e borderô             | Bloco D    | Se a decisão for nativo, as telas 14–17 mudam de natureza e o Bloco D é reescrito |
-| B3  | Reserva real da liberação (situação `'1'` + TTL) | C2         | A trava de concorrência segue fictícia; o app não pode prometer exclusividade     |
-| B4  | Código de erro estável no servidor               | A4, C2, F3 | Mapeamento de erro continua frágil, ainda que isolado num módulo                  |
-| B5  | `react-native-webview`                           | Bloco D    | Dependência ainda não instalada                                                   |
-| B6  | Mecanismo de sessão na WebView                   | Bloco D    | Escrever a tela antes da decisão significa reintroduzir o JWT no fragmento        |
-| B7  | Caminho de push: FCM (Android) × APNs (iOS)      | Bloco E    | Push funciona só em uma das plataformas                                           |
+| 🔒  | Bloqueio                                                                                                             | Trava      | Impacto se não resolver                                                                                  |
+| --- | -------------------------------------------------------------------------------------------------------------------- | ---------- | -------------------------------------------------------------------------------------------------------- |
+| B1  | Hash da senha — decidido (texto puro + TLS); falta o Orion aceitar. [`decisao-hash-senha.md`](decisao-hash-senha.md) | A4         | **Login não funciona** enquanto o servidor comparar MD5. Segue de maior prioridade — trava o app inteiro |
+| B2  | Nativo ou web para compras e borderô                                                                                 | Bloco D    | Se a decisão for nativo, as telas 14–17 mudam de natureza e o Bloco D é reescrito                        |
+| B3  | Reserva real da liberação (situação `'1'` + TTL)                                                                     | C2         | A trava de concorrência segue fictícia; o app não pode prometer exclusividade                            |
+| B4  | Código de erro estável no servidor                                                                                   | A4, C2, F3 | Mapeamento de erro continua frágil, ainda que isolado num módulo                                         |
+| B5  | `react-native-webview`                                                                                               | Bloco D    | Dependência ainda não instalada                                                                          |
+| B6  | Mecanismo de sessão na WebView                                                                                       | Bloco D    | Escrever a tela antes da decisão significa reintroduzir o JWT no fragmento                               |
+| B7  | Caminho de push: FCM (Android) × APNs (iOS)                                                                          | Bloco E    | Push funciona só em uma das plataformas                                                                  |
 
 **Ordem de ataque sugerida:** B1 agora (trava tudo) → B4 e B3 durante o Bloco C → B2, B5 e B6 antes de
 abrir o Bloco D → B7 antes do Bloco E.

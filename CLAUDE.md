@@ -356,15 +356,15 @@ Legenda: ⬜ pendente · 🟨 em andamento · ✅ concluído
 
 ### Onboarding e sessão
 
-| #   | Tela                           | Rota                  | Origem no app Delphi                              | Status                                                   |
-| --- | ------------------------------ | --------------------- | ------------------------------------------------- | -------------------------------------------------------- |
-| 1   | Splash / roteamento inicial    | `src/app/index.tsx`   | `TFrmLoginBase` (aba Splash)                      | ✅                                                       |
-| 2   | Documento da empresa           | `(auth)/documento`    | `TFrmLoginBase` (aba Documento)                   | ⬜                                                       |
-| 3   | Configuração de servidor       | `(auth)/configuracao` | `TFrmLoginBase` (abas Configuração/Bancos)        | ⬜                                                       |
-| 4   | Login                          | `(auth)/login`        | `TFrmLoginBase` (aba Login)                       | 🟨 UI e formulário prontos; falta o hash da senha (§7.1) |
-| 5   | Registro do aparelho e licença | `(auth)/configuracao` | `TFrmLoginBase` (abas Identificação/Licença/Erro) | ⬜                                                       |
-| 6   | Escolha de empresa             | `(auth)/empresa`      | `TFrmLoginBase` (aba Escolha de empresa)          | ⬜                                                       |
-| 7   | Histórico de usuários          | —                     | `TFrmHistoricoUsuarios`                           | ⬜                                                       |
+| #   | Tela                           | Rota                  | Origem no app Delphi                              | Status                                                              |
+| --- | ------------------------------ | --------------------- | ------------------------------------------------- | ------------------------------------------------------------------- |
+| 1   | Splash / roteamento inicial    | `src/app/index.tsx`   | `TFrmLoginBase` (aba Splash)                      | ✅                                                                  |
+| 2   | Documento da empresa           | `(auth)/documento`    | `TFrmLoginBase` (aba Documento)                   | ⬜                                                                  |
+| 3   | Configuração de servidor       | `(auth)/configuracao` | `TFrmLoginBase` (abas Configuração/Bancos)        | ⬜                                                                  |
+| 4   | Login                          | `(auth)/login`        | `TFrmLoginBase` (aba Login)                       | 🟨 UI, formulário e envio da senha prontos; falta o servidor (§7.1) |
+| 5   | Registro do aparelho e licença | `(auth)/configuracao` | `TFrmLoginBase` (abas Identificação/Licença/Erro) | ⬜                                                                  |
+| 6   | Escolha de empresa             | `(auth)/empresa`      | `TFrmLoginBase` (aba Escolha de empresa)          | ⬜                                                                  |
+| 7   | Histórico de usuários          | —                     | `TFrmHistoricoUsuarios`                           | ⬜                                                                  |
 
 ### Área autenticada
 
@@ -410,11 +410,12 @@ Legenda: ⬜ pendente · 🟨 em andamento · ✅ concluído
 
 Precisam de resposta do time antes de fechar as telas correspondentes.
 
-1. **Hash da senha no login.** O Orion espera MD5 puro, sem salt. `preparePassword()` em
-   `src/features/auth/lib/password.ts` está **sem implementação, lançando erro de propósito** —
-   migrar o app reproduzindo o MD5 só carregaria a falha adiante. Decidir entre trocar o
-   contrato no servidor (recomendado) ou manter MD5 no curto prazo. **O login não funciona até
-   isso ser resolvido.**
+1. **Hash da senha no login — decidido do lado do app, pendente no servidor.** A escolha foi a
+   **senha em texto puro sobre TLS, com Argon2id/bcrypt 100% no Orion**;
+   `preparePassword()` já está implementado como passthrough. **Falta o servidor:** hoje o
+   `/v1/auth/login` ainda compara `MD5(Decrypt(USUARIO_SENHA))`, então o login real só passa a
+   funcionar quando o novo contrato subir. Migração sugerida, riscos e critérios em
+   [`docs/decisao-hash-senha.md`](docs/decisao-hash-senha.md).
 2. **Nativo ou web para compras e borderô.** Hoje há duas gerações de UI para a mesma coisa.
    O índice acima assume **web**; se a decisão for nativo, as telas 14–17 mudam de natureza.
 3. **`react-native-webview`** ainda não foi instalado — é a próxima dependência, necessária
