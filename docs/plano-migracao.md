@@ -183,12 +183,24 @@ aparelho e persiste o bloqueio; sucesso persiste JWT + `USUARIO_ID` + `USUARIO_C
 
 **Pronto quando** — decidido o hash, o login real fecha a sessão e navega para `(auth)/empresa`.
 
-#### A6 · Escolha de empresa — `(auth)/empresa`
+#### A6 · Escolha de empresa — `(auth)/empresa` ✅
 
 |        |                                                                |
 | ------ | -------------------------------------------------------------- |
 | Origem | `TFrmLoginBase` (aba Escolha de empresa)                       |
 | API    | `tenantApi` · `GET /v1/application/companyfromuser/{usercode}` |
+
+Fechada: lista em `useEmpresasDoUsuario` (query + `<QueryState>` + pull-to-refresh), empresa única
+selecionada sozinha sem passar pela tela, e `useEscolherEmpresa` como **único** ponto que grava
+`company` na sessão — é ele que a troca de empresa do Bloco B vai reusar.
+
+A cópia em disco fica em `features/empresa/lib/empresas-cache.ts` (MMKV, por `usercode`) e volta
+como `initialData` já vencido: a tela abre com a lista da última sessão e revalida por baixo. Sem
+servidor, o `data` continua sendo o cache e a tela mostra o banner de offline em vez do erro —
+metade do caminho do login offline (F2), que ainda precisa deixar o usuário entrar sem `/v1/auth/login`.
+
+O schema e o endpoint saíram da feature `auth` (onde estavam sem uso) para `features/empresa`, que
+já era dona da logo: empresa é um domínio só, e nenhuma feature importa da outra.
 
 **Preservar** — a empresa escolhida (≠ empresa licenciada) define a empresa corrente e é
 pré-requisito do menu; a lista precisa ficar **em cache** para o login offline (ver F2).

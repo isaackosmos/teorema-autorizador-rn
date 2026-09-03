@@ -28,20 +28,6 @@ export const loginResponseSchema = z
 
 export type LoginResponse = z.output<typeof loginResponseSchema>;
 
-export const companySchema = z
-  .object({
-    COMPANY_ID: z.coerce.number(),
-    COMPANY_CODE: z.string(),
-    COMPANY_NAME: z.string(),
-  })
-  .transform((raw) => ({
-    id: raw.COMPANY_ID,
-    code: raw.COMPANY_CODE,
-    name: raw.COMPANY_NAME,
-  }));
-
-export const companyListSchema = z.array(companySchema);
-
 const optionalText = z
   .string()
   .nullish()

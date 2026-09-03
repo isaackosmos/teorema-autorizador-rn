@@ -2,7 +2,6 @@ import { somenteDigitos } from '@/features/auth/lib/documento';
 import { preparePassword } from '@/features/auth/lib/password';
 import {
   baseDadosListSchema,
-  companyListSchema,
   empresaLicenciadaSchema,
   enderecosServidorSchema,
   loginResponseSchema,
@@ -42,11 +41,6 @@ export async function ping(baseUrl: string): Promise<boolean> {
   } catch {
     return false;
   }
-}
-
-export async function listCompaniesFromUser(userCode: string) {
-  const { data } = await tenantApi.get(`/v1/application/companyfromuser/${userCode}`);
-  return companyListSchema.parse(data);
 }
 
 /**

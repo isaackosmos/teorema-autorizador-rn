@@ -1,5 +1,15 @@
+import { empresaListSchema } from '@/features/empresa/schemas/empresa.schema';
 import { tenantApi } from '@/shared/lib/http/client';
 import { blobToDataUri } from '@/shared/lib/image/data-uri';
+
+/**
+ * Empresas liberadas para o usuário. A escolhida define a empresa corrente e é
+ * pré-requisito do menu (docs/analise §3.1, item 5).
+ */
+export async function listarEmpresasDoUsuario(userCode: string) {
+  const { data } = await tenantApi.get(`/v1/application/companyfromuser/${userCode}`);
+  return empresaListSchema.parse(data);
+}
 
 /**
  * Logo da empresa corrente, exibida no cabeçalho do app.
