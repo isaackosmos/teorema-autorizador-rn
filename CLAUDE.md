@@ -411,15 +411,15 @@ Legenda: ⬜ pendente · 🟨 em andamento · ✅ concluído
 
 ### Onboarding e sessão
 
-| #   | Tela                           | Rota                  | Origem no app Delphi                              | Status                                                                              |
-| --- | ------------------------------ | --------------------- | ------------------------------------------------- | ----------------------------------------------------------------------------------- |
-| 1   | Splash / roteamento inicial    | `src/app/index.tsx`   | `TFrmLoginBase` (aba Splash)                      | ✅                                                                                  |
-| 2   | Documento da empresa           | `(auth)/documento`    | `TFrmLoginBase` (aba Documento)                   | ✅ CNPJ/CPF validado no schema; grava a empresa licenciada e as três URLs do tenant |
-| 3   | Configuração de servidor       | `(auth)/configuracao` | `TFrmLoginBase` (abas Configuração/Bancos)        | ✅ endereços editáveis na tela, ping primário → secundário e escolha da base        |
-| 4   | Login                          | `(auth)/login`        | `TFrmLoginBase` (aba Login)                       | 🟨 UI, formulário e envio da senha prontos; falta o servidor (§7.1)                 |
-| 5   | Registro do aparelho e licença | `(auth)/configuracao` | `TFrmLoginBase` (abas Identificação/Licença/Erro) | ✅ registro no central, validade da licença e um estado só de erro de licença       |
-| 6   | Escolha de empresa             | `(auth)/empresa`      | `TFrmLoginBase` (aba Escolha de empresa)          | ✅ lista em query com cache em MMKV; empresa única entra sozinha e vai para o menu  |
-| 7   | Histórico de usuários          | —                     | `TFrmHistoricoUsuarios`                           | ⬜                                                                                  |
+| #   | Tela                           | Rota                      | Origem no app Delphi                              | Status                                                                                         |
+| --- | ------------------------------ | ------------------------- | ------------------------------------------------- | ---------------------------------------------------------------------------------------------- |
+| 1   | Splash / roteamento inicial    | `src/app/index.tsx`       | `TFrmLoginBase` (aba Splash)                      | ✅                                                                                             |
+| 2   | Documento da empresa           | `(auth)/documento`        | `TFrmLoginBase` (aba Documento)                   | ✅ CNPJ/CPF validado no schema; grava a empresa licenciada e as três URLs do tenant            |
+| 3   | Configuração de servidor       | `(auth)/configuracao`     | `TFrmLoginBase` (abas Configuração/Bancos)        | ✅ endereços editáveis na tela, ping primário → secundário e escolha da base                   |
+| 4   | Login                          | `(auth)/login`            | `TFrmLoginBase` (aba Login)                       | 🟨 UI, formulário e envio da senha prontos; falta o servidor (§7.1)                            |
+| 5   | Registro do aparelho e licença | `(auth)/configuracao`     | `TFrmLoginBase` (abas Identificação/Licença/Erro) | ✅ registro no central, validade da licença e um estado só de erro de licença                  |
+| 6   | Escolha de empresa             | `(auth)/empresa`          | `TFrmLoginBase` (aba Escolha de empresa)          | ✅ lista em query com cache em MMKV; empresa única entra sozinha e vai para o menu             |
+| 7   | Histórico de usuários          | seletor em `(auth)/login` | `TFrmHistoricoUsuarios`                           | ✅ chips dos últimos logins no formulário; MMKV guarda só o username e a data do último acesso |
 
 ### Área autenticada
 

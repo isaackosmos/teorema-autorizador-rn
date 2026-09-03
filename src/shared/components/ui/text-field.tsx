@@ -3,12 +3,15 @@ import { Text, TextInput, View } from 'react-native';
 
 import { cn } from '@/shared/lib/format/cn';
 
+import type { Ref } from 'react';
 import type { TextInputProps } from 'react-native';
 
 interface TextFieldProps<T extends FieldValues> extends Omit<TextInputProps, 'onChangeText'> {
   control: Control<T>;
   name: FieldPath<T>;
   label: string;
+  /** Para encadear campos: quem chama guarda o ref e chama `.focus()`. */
+  ref?: Ref<TextInput>;
 }
 
 /**
@@ -20,6 +23,7 @@ export function TextField<T extends FieldValues>({
   name,
   label,
   className,
+  ref,
   ...rest
 }: TextFieldProps<T>) {
   return (
@@ -31,6 +35,7 @@ export function TextField<T extends FieldValues>({
           <Text className="text-sm font-medium text-foreground">{label}</Text>
 
           <TextInput
+            ref={ref}
             value={field.value ?? ''}
             onChangeText={field.onChange}
             onBlur={field.onBlur}

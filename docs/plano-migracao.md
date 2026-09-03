@@ -252,11 +252,15 @@ push abrindo a tela certa (Bloco E).
 **Pronto quando** — cabeçalho mostra usuário, empresa e logo; badge reflete o número real; estado
 offline é visível; sair volta para `(auth)/login` limpando a sessão do usuário (não a do aparelho).
 
-#### B2 · Histórico de usuários — seletor no login/chrome
+#### B2 · Histórico de usuários — seletor no login ✅
 
 |        |                                                        |
 | ------ | ------------------------------------------------------ |
 | Origem | `TFrmHistoricoUsuarios` (tabela local `LOGIN_HISTORY`) |
+
+Fechada: os últimos cinco logins aparecem como chips no formulário de `(auth)/login`; tocar em um
+preenche o campo de usuário, o "✕" tira o login do histórico e sem histórico o seletor não ocupa
+espaço. Quem grava é o `useLogin`, depois de o servidor aceitar o login.
 
 **Preservar** — trocar de usuário sem redigitar o nome de login.
 

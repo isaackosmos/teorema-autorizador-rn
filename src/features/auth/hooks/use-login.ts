@@ -2,6 +2,7 @@ import { useMutation } from '@tanstack/react-query';
 import { useRouter } from 'expo-router';
 
 import { login } from '@/features/auth/api/auth.api';
+import { useHistoricoUsuariosStore } from '@/features/auth/stores/historico-usuarios.store';
 import { useSessionStore } from '@/shared/stores/session.store';
 import { DeviceStatus } from '@/shared/types/session.types';
 
@@ -18,6 +19,7 @@ export function useLogin() {
   const device = useSessionStore((s) => s.device);
   const setUser = useSessionStore((s) => s.setUser);
   const setDevice = useSessionStore((s) => s.setDevice);
+  const registrarAcesso = useHistoricoUsuariosStore((s) => s.registrarAcesso);
 
   return useMutation({
     // O aparelho pode não estar registrado ainda: é este login que autoriza o
@@ -25,6 +27,11 @@ export function useLogin() {
     // o `registerid` quando ele não existe — igual ao original.
     mutationFn: (payload: LoginPayload) => login(payload, device.registerId),
     onSuccess: ({ deviceStatus, ...usuario }, payload) => {
+      // O servidor aceitou o login: ele entra no histórico mesmo que o
+      // aparelho esteja bloqueado — quem digitou não tem culpa da licença.
+      // Vai só o username; a senha não é gravada em lugar nenhum (§7.1.9).
+      registrarAcesso(payload.username);
+
       if (deviceStatus === DeviceStatus.Bloqueado) {
         setDevice({ status: DeviceStatus.Bloqueado });
         return;
