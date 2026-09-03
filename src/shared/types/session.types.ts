@@ -12,6 +12,10 @@ export interface Device {
   status: DeviceStatus;
   /** CNPJ/CPF da empresa licenciada. */
   companyDocument: string | null;
+  /** Código da empresa licenciada (`CLIFOR_CODIGO`); vai no registro do aparelho. */
+  companyCode: string | null;
+  /** Id da empresa licenciada (`CLIFOR_ID`); vai no registro do aparelho. */
+  companyId: number | null;
   /** Id do registro deste aparelho no servidor central. */
   registerId: number | null;
   /** Identifica a base do tenant; vai no header `tokendatabase` do login. */

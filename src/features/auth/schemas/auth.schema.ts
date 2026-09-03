@@ -39,3 +39,48 @@ export const companySchema = z
   }));
 
 export const companyListSchema = z.array(companySchema);
+
+const optionalText = z
+  .string()
+  .nullish()
+  .transform((value) => value?.trim() || null);
+
+/**
+ * `GET /v1/application/companyinformation` — empresa **licenciada** para o par
+ * documento + `systemcode` (≠ empresa corrente escolhida no login).
+ *
+ * O código e o id voltam para o servidor central no registro do aparelho
+ * (`companycode` / `companyid`, docs/analise §3.1 e §5.1).
+ */
+export const empresaLicenciadaSchema = z
+  .object({
+    CLIFOR_CODIGO: z.coerce.string(),
+    CLIFOR_ID: z.coerce.number(),
+  })
+  .transform((raw) => ({
+    code: raw.CLIFOR_CODIGO,
+    id: raw.CLIFOR_ID,
+  }));
+
+export type EmpresaLicenciada = z.output<typeof empresaLicenciadaSchema>;
+
+/**
+ * `GET /v1/application/getserverurl` — endereços do tenant.
+ *
+ * Só o primário é obrigatório: sem ele não há o que testar no ping (A3).
+ * O secundário alimenta o fallback e o de impressão não é usado por este app,
+ * mas é gravado porque o registro do aparelho o devolve ao servidor.
+ */
+export const enderecosServidorSchema = z
+  .object({
+    SERVER_URL_PRIMARY: z.string().trim().min(1),
+    SERVER_URL_SECONDARY: optionalText,
+    SERVER_URL_PRINT: optionalText,
+  })
+  .transform((raw) => ({
+    primary: raw.SERVER_URL_PRIMARY,
+    secondary: raw.SERVER_URL_SECONDARY,
+    print: raw.SERVER_URL_PRINT,
+  }));
+
+export type EnderecosServidor = z.output<typeof enderecosServidorSchema>;

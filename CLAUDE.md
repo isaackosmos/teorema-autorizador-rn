@@ -70,9 +70,10 @@ Duas coisas derrubam o app antes de qualquer tela aparecer. Não são bugs — s
 2. **Nenhuma chamada ao tenant funciona enquanto o aparelho não tiver servidor resolvido.** O
    interceptor de request do `tenantApi` lança
    `ApiError(0, 'Servidor do cliente ainda não foi resolvido.')` quando `device.serverUrlActive`
-   é `null`, e quem preenche esse campo é o onboarding (telas 2, 3 e 5 — todas pendentes). Hoje,
-   portanto, toda requisição ao Orion do cliente falha antes de sair do app. Para exercitar uma
-   tela isolada, popule a sessão à mão: `useSessionStore.getState().setDevice({ … })`.
+   é `null`. A tela 2 já grava as URLs primária e secundária, mas quem testa o ping e elege
+   a ativa são as telas 3 e 5, ainda pendentes — então toda requisição ao Orion do cliente
+   continua falhando antes de sair do app. Para exercitar uma tela isolada, popule a sessão à
+   mão: `useSessionStore.getState().setDevice({ … })`.
 
 Com a `baseURL` resolvida, o mesmo interceptor injeta `Authorization: Bearer <jwt>` (quando há
 usuário logado) e o header `tokendatabase` do aparelho. O `centralApi` não depende de nada
@@ -409,15 +410,15 @@ Legenda: ⬜ pendente · 🟨 em andamento · ✅ concluído
 
 ### Onboarding e sessão
 
-| #   | Tela                           | Rota                  | Origem no app Delphi                              | Status                                                              |
-| --- | ------------------------------ | --------------------- | ------------------------------------------------- | ------------------------------------------------------------------- |
-| 1   | Splash / roteamento inicial    | `src/app/index.tsx`   | `TFrmLoginBase` (aba Splash)                      | ✅                                                                  |
-| 2   | Documento da empresa           | `(auth)/documento`    | `TFrmLoginBase` (aba Documento)                   | ⬜                                                                  |
-| 3   | Configuração de servidor       | `(auth)/configuracao` | `TFrmLoginBase` (abas Configuração/Bancos)        | ⬜                                                                  |
-| 4   | Login                          | `(auth)/login`        | `TFrmLoginBase` (aba Login)                       | 🟨 UI, formulário e envio da senha prontos; falta o servidor (§7.1) |
-| 5   | Registro do aparelho e licença | `(auth)/configuracao` | `TFrmLoginBase` (abas Identificação/Licença/Erro) | ⬜                                                                  |
-| 6   | Escolha de empresa             | `(auth)/empresa`      | `TFrmLoginBase` (aba Escolha de empresa)          | ⬜                                                                  |
-| 7   | Histórico de usuários          | —                     | `TFrmHistoricoUsuarios`                           | ⬜                                                                  |
+| #   | Tela                           | Rota                  | Origem no app Delphi                              | Status                                                                              |
+| --- | ------------------------------ | --------------------- | ------------------------------------------------- | ----------------------------------------------------------------------------------- |
+| 1   | Splash / roteamento inicial    | `src/app/index.tsx`   | `TFrmLoginBase` (aba Splash)                      | ✅                                                                                  |
+| 2   | Documento da empresa           | `(auth)/documento`    | `TFrmLoginBase` (aba Documento)                   | ✅ CNPJ/CPF validado no schema; grava a empresa licenciada e as três URLs do tenant |
+| 3   | Configuração de servidor       | `(auth)/configuracao` | `TFrmLoginBase` (abas Configuração/Bancos)        | ⬜                                                                                  |
+| 4   | Login                          | `(auth)/login`        | `TFrmLoginBase` (aba Login)                       | 🟨 UI, formulário e envio da senha prontos; falta o servidor (§7.1)                 |
+| 5   | Registro do aparelho e licença | `(auth)/configuracao` | `TFrmLoginBase` (abas Identificação/Licença/Erro) | ⬜                                                                                  |
+| 6   | Escolha de empresa             | `(auth)/empresa`      | `TFrmLoginBase` (aba Escolha de empresa)          | ⬜                                                                                  |
+| 7   | Histórico de usuários          | —                     | `TFrmHistoricoUsuarios`                           | ⬜                                                                                  |
 
 ### Área autenticada
 

@@ -18,6 +18,8 @@ import { DeviceStatus, type Company, type Device, type User } from '@/shared/typ
 const emptyDevice: Device = {
   status: DeviceStatus.NaoRegistrado,
   companyDocument: null,
+  companyCode: null,
+  companyId: null,
   registerId: null,
   tokenDatabase: null,
   serverUrlPrimary: null,
@@ -65,6 +67,14 @@ export const useSessionStore = create<SessionState>()(
       version: 1,
       // `online` é estado de runtime: não faz sentido restaurar do disco.
       partialize: ({ device, user, company }) => ({ device, user, company }),
+      // O merge padrão do `persist` é raso: o `device` gravado substituiria o
+      // objeto inteiro e chegaria sem as chaves que a versão anterior do app
+      // ainda não gravava. Completar com `emptyDevice` mantém o tipo honesto
+      // sem precisar de `migrate` a cada campo novo do aparelho.
+      merge: (persisted, current) => {
+        const saved = (persisted ?? {}) as Partial<SessionState>;
+        return { ...current, ...saved, device: { ...emptyDevice, ...saved.device } };
+      },
     },
   ),
 );

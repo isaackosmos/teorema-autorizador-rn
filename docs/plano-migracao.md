@@ -77,13 +77,23 @@ destino pela sessão persistida — o que já está feito.
 Já migrado; serve de referência para o resto do bloco. O ganho sobre o original: decisão **síncrona**
 via MMKV, sem os 3 s de `Sleep` do splash (§7.2.13).
 
-#### A2 · Documento da empresa — `(auth)/documento`
+#### A2 · Documento da empresa — `(auth)/documento` ✅
 
 |            |                                                                                                                                   |
 | ---------- | --------------------------------------------------------------------------------------------------------------------------------- |
 | Origem     | `TFrmLoginBase` (aba Documento)                                                                                                   |
 | API        | `centralApi` · `GET /v1/application/companyinformation?document=&systemcode=00076` · `GET /v1/application/getserverurl?document=` |
 | Depende de | `centralApi`, `session.store` (✅ prontos)                                                                                        |
+
+Fechada: CNPJ/CPF conferido no `documentoSchema` (dígito verificador em
+`features/auth/lib/documento.ts`), documento enviado com máscara — a forma gravada em
+`CLIFOR_DOCUMENTO` —, e a sessão recebendo `companyDocument`, a empresa licenciada
+(`companyCode`/`companyId`, exigidos pelo registro do aparelho em A5) e as três URLs.
+
+Uma ressalva de contrato: o Orion responde **200 com `{}`** quando não há licença para o par
+documento + `systemcode`. Como não há status para decidir, quem converte o corpo vazio em
+`ApiError(404)` é a camada de API (`buscarEmpresaLicenciada`) — em **um** lugar, para a tela
+continuar decidindo por status. Fecha junto com 🔒 B4.
 
 **Preservar** — validação do documento contra o `systemcode` `00076`; resolução de
 `SERVER_URL_PRIMARY` / `SECONDARY` / `PRINT` para a sessão; o CNPJ de demo continua sendo um
@@ -447,15 +457,15 @@ Confirmado na análise e reafirmado aqui para não voltar em revisão:
 
 Repetem as **Decisões em aberto** do `CLAUDE.md §7`, aqui amarradas ao bloco que travam.
 
-| 🔒  | Bloqueio                                                                                                             | Trava      | Impacto se não resolver                                                                                  |
-| --- | -------------------------------------------------------------------------------------------------------------------- | ---------- | -------------------------------------------------------------------------------------------------------- |
-| B1  | Hash da senha — decidido (texto puro + TLS); falta o Orion aceitar. [`decisao-hash-senha.md`](decisao-hash-senha.md) | A4         | **Login não funciona** enquanto o servidor comparar MD5. Segue de maior prioridade — trava o app inteiro |
-| B2  | Nativo ou web para compras e borderô                                                                                 | Bloco D    | Se a decisão for nativo, as telas 14–17 mudam de natureza e o Bloco D é reescrito                        |
-| B3  | Reserva real da liberação (situação `'1'` + TTL)                                                                     | C2         | A trava de concorrência segue fictícia; o app não pode prometer exclusividade                            |
-| B4  | Código de erro estável no servidor                                                                                   | A4, C2, F3 | Mapeamento de erro continua frágil, ainda que isolado num módulo                                         |
-| B5  | `react-native-webview`                                                                                               | Bloco D    | Dependência ainda não instalada                                                                          |
-| B6  | Mecanismo de sessão na WebView                                                                                       | Bloco D    | Escrever a tela antes da decisão significa reintroduzir o JWT no fragmento                               |
-| B7  | Caminho de push: FCM (Android) × APNs (iOS)                                                                          | Bloco E    | Push funciona só em uma das plataformas                                                                  |
+| 🔒  | Bloqueio                                                                                                             | Trava          | Impacto se não resolver                                                                                  |
+| --- | -------------------------------------------------------------------------------------------------------------------- | -------------- | -------------------------------------------------------------------------------------------------------- |
+| B1  | Hash da senha — decidido (texto puro + TLS); falta o Orion aceitar. [`decisao-hash-senha.md`](decisao-hash-senha.md) | A4             | **Login não funciona** enquanto o servidor comparar MD5. Segue de maior prioridade — trava o app inteiro |
+| B2  | Nativo ou web para compras e borderô                                                                                 | Bloco D        | Se a decisão for nativo, as telas 14–17 mudam de natureza e o Bloco D é reescrito                        |
+| B3  | Reserva real da liberação (situação `'1'` + TTL)                                                                     | C2             | A trava de concorrência segue fictícia; o app não pode prometer exclusividade                            |
+| B4  | Código de erro estável no servidor                                                                                   | A2, A4, C2, F3 | Mapeamento de erro continua frágil, ainda que isolado num módulo                                         |
+| B5  | `react-native-webview`                                                                                               | Bloco D        | Dependência ainda não instalada                                                                          |
+| B6  | Mecanismo de sessão na WebView                                                                                       | Bloco D        | Escrever a tela antes da decisão significa reintroduzir o JWT no fragmento                               |
+| B7  | Caminho de push: FCM (Android) × APNs (iOS)                                                                          | Bloco E        | Push funciona só em uma das plataformas                                                                  |
 
 **Ordem de ataque sugerida:** B1 agora (trava tudo) → B4 e B3 durante o Bloco C → B2, B5 e B6 antes de
 abrir o Bloco D → B7 antes do Bloco E.
