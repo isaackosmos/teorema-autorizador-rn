@@ -12,7 +12,7 @@ export default function AppLayout() {
 
   return (
     <Stack screenOptions={{ headerShown: true, headerBackButtonDisplayMode: 'minimal' }}>
-      <Stack.Screen name="menu" options={{ title: 'Teorema Autorizador' }} />
+      <Stack.Screen name="menu" options={{ headerShown: false }} />
       <Stack.Screen name="liberacoes/index" options={{ title: 'Liberações Remotas' }} />
       <Stack.Screen name="liberacoes/[id]/index" options={{ title: 'Análise' }} />
       <Stack.Screen name="liberacoes/[id]/cliente" options={{ title: 'Dados do cliente' }} />

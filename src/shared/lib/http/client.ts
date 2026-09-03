@@ -1,14 +1,34 @@
-import { create as createAxios, type AxiosInstance } from 'axios';
+import { create as createAxios, isAxiosError, type AxiosInstance } from 'axios';
 
 import { env } from '@/shared/config/env';
 import { ApiError, toApiError } from '@/shared/lib/http/errors';
 import { getSession } from '@/shared/stores/session.store';
 
+/**
+ * Marca a conectividade na sessão a partir do resultado real das requisições.
+ * É o sinal que o indicador de offline do chrome lê. O teste explícito de
+ * primário → secundário (plano F1) refina esta marcação depois, sem mudar
+ * quem a consome.
+ */
+function marcarConexao(online: boolean): void {
+  const session = getSession();
+  if (session.online !== online) session.setOnline(online);
+}
+
 /** Toda resposta de erro vira `ApiError`, para ninguém tratar `AxiosError` cru. */
 function withErrorNormalization(instance: AxiosInstance): AxiosInstance {
   instance.interceptors.response.use(
-    (response) => response,
-    (error: unknown) => Promise.reject(toApiError(error)),
+    (response) => {
+      marcarConexao(true);
+      return response;
+    },
+    (error: unknown) => {
+      // Offline é *falta de resposta*: um 4xx/5xx prova que há conexão, e o
+      // `ApiError` lançado no interceptor de request (servidor ainda não
+      // resolvido) não é erro de rede. A distinção é por tipo, não por texto.
+      if (isAxiosError(error) && !error.response) marcarConexao(false);
+      return Promise.reject(toApiError(error));
+    },
   );
   return instance;
 }

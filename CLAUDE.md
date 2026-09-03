@@ -11,6 +11,8 @@ O inventário completo do app legado — telas, regras de negócio, endpoints, m
 falhas conhecidas — está versionado aqui em
 [`docs/analise-app-original.md`](docs/analise-app-original.md).
 **Leia a análise antes de migrar qualquer tela**: ela diz o que preservar e o que não repetir.
+Esse arquivo é **cópia fiel** da análise do monorepo e está no `.prettierignore` para se manter
+byte a byte idêntico: **não edite nem reformate** — correção vai no monorepo e desce por cópia.
 
 A ordem de ataque — blocos, fases e o que corrigir em cada tela — está em
 [`docs/plano-migracao.md`](docs/plano-migracao.md). O **status** de cada tela continua sendo o
@@ -52,6 +54,30 @@ npm start                      # dev server (dev client)
 
 Scripts: `lint` · `lint:fix` · `format` · `format:check` · `typecheck` · `doctor` · `prebuild`.
 
+**Não há runner de teste instalado** — nem Jest, nem Vitest, nem `@testing-library`. Não existe
+comando para rodar "um teste"; os únicos portões automáticos são o `typecheck` e o `lint-staged`
+dos hooks abaixo, e o projeto não tem CI. Ao instalar o primeiro runner, atualize esta seção e a
+linha "Testes automatizados" da §6.
+
+### Pré-requisitos de runtime
+
+Duas coisas derrubam o app antes de qualquer tela aparecer. Não são bugs — são a ordem do plano.
+
+1. **Sem `.env.local` completo o app não sobe.** `src/shared/config/env.ts` valida as quatro
+   variáveis com Zod já no import e faz `throw` se faltar alguma — o erro aparece no boot, não
+   na tela. O Metro só substitui `process.env.EXPO_PUBLIC_X` em acesso literal, e é por isso
+   que o objeto do `env.ts` é montado à mão, sem loop nem índice dinâmico.
+2. **Nenhuma chamada ao tenant funciona enquanto o aparelho não tiver servidor resolvido.** O
+   interceptor de request do `tenantApi` lança
+   `ApiError(0, 'Servidor do cliente ainda não foi resolvido.')` quando `device.serverUrlActive`
+   é `null`, e quem preenche esse campo é o onboarding (telas 2, 3 e 5 — todas pendentes). Hoje,
+   portanto, toda requisição ao Orion do cliente falha antes de sair do app. Para exercitar uma
+   tela isolada, popule a sessão à mão: `useSessionStore.getState().setDevice({ … })`.
+
+Com a `baseURL` resolvida, o mesmo interceptor injeta `Authorization: Bearer <jwt>` (quando há
+usuário logado) e o header `tokendatabase` do aparelho. O `centralApi` não depende de nada
+disso: nasce com `baseURL` e token fixos, vindos do `.env`.
+
 ### Hooks de Git
 
 O `npm install` roda `prepare` → `husky`, que ativa os hooks sozinho. Não há passo manual.
@@ -71,14 +97,18 @@ justamente porque o projeto ainda não tem CI.
 ```
 teorema-autorizador-rn/
 ├── docs/
-│   └── analise-app-original.md # inventário do app Delphi legado (fonte da migração)
+│   ├── analise-app-original.md # inventário do legado — NÃO reformatar (.prettierignore)
+│   ├── plano-migracao.md       # blocos A–F, ordem de ataque, critério de pronto
+│   └── decisao-hash-senha.md   # bloqueio B1: senha em texto puro sobre TLS
 │
 ├── src/
 │   ├── app/                    # ROTAS (Expo Router). Só composição — sem regra.
 │   │   ├── _layout.tsx         #   providers globais
 │   │   ├── index.tsx           #   decide o destino inicial pela sessão
+│   │   ├── +not-found.tsx      #   rota desconhecida
 │   │   ├── (auth)/             #   onboarding: documento, configuração, login, empresa
-│   │   └── (app)/              #   área autenticada: menu, liberações, web systems
+│   │   └── (app)/              #   área autenticada: menu, liberações, notificações
+│   │       └── web/[sistema]   #   contêiner ÚNICO dos web systems (uma rota, não quatro)
 │   │
 │   ├── features/               # UMA PASTA POR DOMÍNIO. É aqui que mora a feature.
 │   │   └── <feature>/
@@ -117,7 +147,9 @@ app/  →  features/  →  shared/
 - `shared/` **nunca** importa de `features/` nem de `app/`.
 - Uma feature **não** importa de outra feature. Se duas precisam da mesma coisa, ela sobe para `shared/`.
 - `app/` só compõe: importa hooks e componentes, não declara regra nem chama `axios`.
-- Import sempre pelo alias `@/` (`@/features/liberacoes/...`), nunca `../../../`. O ESLint bloqueia.
+- Import sempre pelo alias `@/` (`@/features/liberacoes/...`), nunca `../../../`. O
+  `no-restricted-imports` do ESLint barra exatamente `../../../*` e `../../features/*` — o resto
+  (`../../shared/foo`, por exemplo) passa pelo linter, mas continua proibido por convenção.
 
 ---
 
@@ -133,6 +165,27 @@ app/  →  features/  →  shared/
 | Tipos e interfaces   | `PascalCase`, **sem** prefixo `I`/`T`                             | `Liberacao`, `Device`                            |
 | Constantes de módulo | `SCREAMING_SNAKE_CASE`                                            | `ORIGEM_LABEL`                                   |
 | Sufixos de arquivo   | `.api.ts` · `.keys.ts` · `.schema.ts` · `.store.ts` · `.types.ts` | `liberacoes.api.ts`                              |
+
+### TypeScript
+
+Três padrões estão em todo arquivo do `src/` e vêm das flags do `tsconfig.json`:
+
+- **`import type` em bloco próprio, no fim dos imports.** `verbatimModuleSyntax` exige a forma
+  explícita, e a ordem do projeto é: pacotes externos → `@/…` → `import type`. Referência:
+  `src/app/(app)/liberacoes/index.tsx`, `src/shared/components/ui/screen.tsx`.
+- **Enum é const-objeto + type do mesmo nome**, nunca `enum` do TypeScript:
+
+  ```ts
+  export const DeviceStatus = { NaoRegistrado: 0, Ativo: 1, Bloqueado: 2 } as const;
+  export type DeviceStatus = (typeof DeviceStatus)[keyof typeof DeviceStatus];
+  ```
+
+  Referências: `src/shared/types/session.types.ts`, `SituacaoLiberacao` em
+  `liberacao.schema.ts`. É por causa desse padrão que `@typescript-eslint/no-redeclare` está
+  desligado no `eslint.config.js` — não reative.
+
+- **`noUncheckedIndexedAccess` ligado:** acesso por índice devolve `T | undefined`. Todo lookup
+  em `Record` precisa de fallback — `ORIGEM_LABEL[origem] ?? ''`, nunca `!`.
 
 ### Idioma
 
@@ -368,18 +421,22 @@ Legenda: ⬜ pendente · 🟨 em andamento · ✅ concluído
 
 ### Área autenticada
 
-| #   | Tela                                          | Rota                            | Origem no app Delphi                        | Status                                                      |
-| --- | --------------------------------------------- | ------------------------------- | ------------------------------------------- | ----------------------------------------------------------- |
-| 8   | Menu principal                                | `(app)/menu`                    | `TFrmPrincipal` + `TFrmPrincipalBase`       | 🟨 itens e navegação prontos; falta cabeçalho, logo e badge |
-| 9   | Fila de liberações                            | `(app)/liberacoes`              | `TFrmLiberacoes` › `TabItemNotificacoes`    | 🟨 lista funcional; falta busca e ícone por tipo            |
-| 10  | Análise da liberação                          | `(app)/liberacoes/[id]`         | `TFrmLiberacoes` › `TabItemDetalhes`        | ⬜                                                          |
-| 11  | Dados do cliente                              | `(app)/liberacoes/[id]/cliente` | `TFrmLiberacoes` › `TabItemDetalhesCliente` | ⬜                                                          |
-| 12  | Feedback da decisão                           | (parte de #10)                  | `TabItemFeedbackAceito` / `Recusado`        | ⬜                                                          |
-| 13  | Notificações                                  | `(app)/notificacoes`            | `TFrmNotificacao`                           | ⬜                                                          |
-| 14  | Web system — Pedidos de Compra                | `(app)/web/autcompras`          | `TFrmAutComprasWeb`                         | ⬜                                                          |
-| 15  | Web system — Autorização de Cotação           | `(app)/web/autcotacao`          | `TFrmAutCotacaoWeb`                         | ⬜                                                          |
-| 16  | Web system — Requisição de Compra             | `(app)/web/reqcompras`          | `TFrmReqComprasWeb`                         | ⬜                                                          |
-| 17  | Web system — Autorizador Financeiro / Borderô | `(app)/web/autorizador`         | `TFrmWebSystems`                            | ⬜                                                          |
+| #   | Tela                                          | Rota                            | Origem no app Delphi                        | Status                                                                                   |
+| --- | --------------------------------------------- | ------------------------------- | ------------------------------------------- | ---------------------------------------------------------------------------------------- |
+| 8   | Menu principal                                | `(app)/menu`                    | `TFrmPrincipal` + `TFrmPrincipalBase`       | ✅ cabeçalho (usuário, empresa, logo em cache), badge de notificações e aviso de offline |
+| 9   | Fila de liberações                            | `(app)/liberacoes`              | `TFrmLiberacoes` › `TabItemNotificacoes`    | 🟨 lista funcional; falta busca e ícone por tipo                                         |
+| 10  | Análise da liberação                          | `(app)/liberacoes/[id]`         | `TFrmLiberacoes` › `TabItemDetalhes`        | ⬜                                                                                       |
+| 11  | Dados do cliente                              | `(app)/liberacoes/[id]/cliente` | `TFrmLiberacoes` › `TabItemDetalhesCliente` | ⬜                                                                                       |
+| 12  | Feedback da decisão                           | (parte de #10)                  | `TabItemFeedbackAceito` / `Recusado`        | ⬜                                                                                       |
+| 13  | Notificações                                  | `(app)/notificacoes`            | `TFrmNotificacao`                           | ⬜                                                                                       |
+| 14  | Web system — Pedidos de Compra                | `sistema=autcompras`            | `TFrmAutComprasWeb`                         | ⬜                                                                                       |
+| 15  | Web system — Autorização de Cotação           | `sistema=autcotacao`            | `TFrmAutCotacaoWeb`                         | ⬜                                                                                       |
+| 16  | Web system — Requisição de Compra             | `sistema=reqcompras`            | `TFrmReqComprasWeb`                         | ⬜                                                                                       |
+| 17  | Web system — Autorizador Financeiro / Borderô | `sistema=autorizador`           | `TFrmWebSystems`                            | ⬜                                                                                       |
+
+As telas 14–17 **não** são quatro rotas: todas são a mesma rota parametrizada
+`(app)/web/[sistema]`, variando só o parâmetro da coluna Rota. O app Delphi tinha três forms
+idênticos para isso (`analise §7.3.21`) — não recrie o arquivo por sistema.
 
 ### Fora de escopo (decisão pendente — ver §7.2)
 
@@ -392,17 +449,17 @@ Legenda: ⬜ pendente · 🟨 em andamento · ✅ concluído
 
 ### Infraestrutura transversal
 
-| Item                                                             | Status                             |
-| ---------------------------------------------------------------- | ---------------------------------- |
-| Clientes HTTP (central + tenant) com `ApiError`                  | ✅                                 |
-| Sessão persistida em MMKV (aparelho, usuário, empresa)           | ✅                                 |
-| Query client com política de retry por status                    | ✅                                 |
-| Componentes base (`Screen`, `Button`, `TextField`, `QueryState`) | ✅                                 |
-| Tokens de tema light/dark                                        | ✅                                 |
-| Fallback primário → secundário → offline                         | ⬜                                 |
-| Push notification (FCM / APNs) e roteamento por notificação      | ⬜                                 |
-| Cache offline de empresas                                        | ⬜                                 |
-| Testes automatizados                                             | ⬜ (o app original não tem nenhum) |
+| Item                                                             | Status                                                                                                            |
+| ---------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------- |
+| Clientes HTTP (central + tenant) com `ApiError`                  | ✅                                                                                                                |
+| Sessão persistida em MMKV (aparelho, usuário, empresa)           | ✅                                                                                                                |
+| Query client com política de retry por status                    | ✅                                                                                                                |
+| Componentes base (`Screen`, `Button`, `TextField`, `QueryState`) | ✅                                                                                                                |
+| Tokens de tema light/dark                                        | ✅                                                                                                                |
+| Fallback primário → secundário → offline                         | ⬜ (o cliente HTTP já marca `session.online` pelo resultado das requisições; falta o teste primário → secundário) |
+| Push notification (FCM / APNs) e roteamento por notificação      | ⬜                                                                                                                |
+| Cache offline de empresas                                        | ⬜                                                                                                                |
+| Testes automatizados                                             | ⬜ (nenhum runner instalado — §1)                                                                                 |
 
 ---
 

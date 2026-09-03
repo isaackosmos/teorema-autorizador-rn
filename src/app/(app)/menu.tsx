@@ -1,9 +1,13 @@
+import { useQueryClient } from '@tanstack/react-query';
 import { useRouter } from 'expo-router';
-import { ScrollView, Text, View } from 'react-native';
+import { ScrollView } from 'react-native';
 
+import { useLogoEmpresa } from '@/features/empresa/hooks/use-logo-empresa';
+import { useNotificacoesNaoLidas } from '@/features/notificacoes/hooks/use-notificacoes-nao-lidas';
+import { AppHeader } from '@/shared/components/ui/app-header';
 import { Button } from '@/shared/components/ui/button';
 import { Screen } from '@/shared/components/ui/screen';
-import { useCurrentCompany, useSessionStore } from '@/shared/stores/session.store';
+import { useCurrentCompany, useCurrentUser, useSessionStore } from '@/shared/stores/session.store';
 
 import type { Href } from 'expo-router';
 
@@ -24,17 +28,36 @@ const ITENS: { titulo: string; href: Href }[] = [
 
 export default function MenuScreen() {
   const router = useRouter();
+  const queryClient = useQueryClient();
+  const user = useCurrentUser();
   const company = useCurrentCompany();
   const signOut = useSessionStore((s) => s.signOut);
 
-  return (
-    <Screen edges={['bottom']}>
-      <ScrollView contentContainerClassName="gap-3 p-4">
-        <View className="pb-2">
-          <Text className="text-sm text-muted">Empresa</Text>
-          <Text className="text-base font-semibold text-foreground">{company?.name ?? '—'}</Text>
-        </View>
+  const { data: logoUri } = useLogoEmpresa();
+  const naoLidas = useNotificacoesNaoLidas();
 
+  const usuario = user?.name?.trim() || user?.code || '—';
+
+  /** Sai do usuário mantendo o aparelho registrado (plano B1). */
+  function sair() {
+    signOut();
+    // Cache é do usuário que sai: fila, logo e badge não sobrevivem à troca.
+    queryClient.clear();
+  }
+
+  return (
+    <Screen>
+      <AppHeader
+        usuario={usuario}
+        empresa={company?.name ?? '—'}
+        logoUri={logoUri}
+        // O cabeçalho só mostra o sino quando o total é maior que zero: a
+        // tela de notificações ainda não tem fonte de dados (plano E2) e item
+        // que não abre nada não existe no menu (docs/analise §7.2.10).
+        notificacoes={{ total: naoLidas, onPress: () => router.push('/(app)/notificacoes') }}
+      />
+
+      <ScrollView contentContainerClassName="gap-3 p-4">
         {ITENS.map((item) => (
           <Button
             key={item.titulo}
@@ -44,7 +67,7 @@ export default function MenuScreen() {
           />
         ))}
 
-        <Button title="Sair" variant="outline" className="mt-6" onPress={signOut} />
+        <Button title="Sair" variant="outline" className="mt-6" onPress={sair} />
       </ScrollView>
     </Screen>
   );
