@@ -1,26 +1,34 @@
+import { somenteDigitos } from '@/features/auth/lib/documento';
+import { preparePassword } from '@/features/auth/lib/password';
 import {
+  baseDadosListSchema,
   companyListSchema,
   empresaLicenciadaSchema,
   enderecosServidorSchema,
   loginResponseSchema,
+  registroResultadoSchema,
 } from '@/features/auth/schemas/auth.schema';
-import { preparePassword } from '@/features/auth/lib/password';
+import { registroAparelhoRequestSchema } from '@/features/auth/schemas/registro-aparelho.schema';
 import { env } from '@/shared/config/env';
 import { centralApi, tenantApi } from '@/shared/lib/http/client';
 import { ApiError } from '@/shared/lib/http/errors';
 
 import type { LoginPayload } from '@/features/auth/schemas/login.schema';
+import type { RegistroAparelhoRequest } from '@/features/auth/schemas/registro-aparelho.schema';
 
 /**
  * Serviço de API: uma função por endpoint, sem estado e sem React.
  * Recebe/devolve tipos do domínio; a tradução do payload fica nos schemas.
  */
 
-export async function login(payload: LoginPayload, registerId: number) {
+export async function login(payload: LoginPayload, registerId: number | null) {
   const { data } = await tenantApi.post('/v1/auth/login', {
     username: payload.username,
     password: preparePassword(payload.password),
-    registerid: registerId,
+    // No primeiro login o aparelho ainda não tem registro: o original omitia
+    // o campo nesse caso (docs/analise §3.1) e o servidor conta com isso —
+    // mandar `null` derruba o login que precede o registro.
+    ...(registerId === null ? {} : { registerid: registerId }),
   });
 
   return loginResponseSchema.parse(data);
@@ -80,4 +88,31 @@ export async function buscarEnderecosServidor(documento: string) {
   }
 
   return enderecos.data;
+}
+
+/**
+ * Bases que o tenant expõe para o documento (aba "Bancos" do original).
+ *
+ * Vai só com os dígitos: o servidor aplica a máscara antes de comparar
+ * (`TMyClaims.Setup`), e é assim que o app Delphi chamava.
+ */
+export async function listarBases(documento: string) {
+  const { data } = await tenantApi.get(`/v1/auth/setup/${somenteDigitos(documento)}`);
+  return baseDadosListSchema.parse(data);
+}
+
+/**
+ * Registra o aparelho no servidor central e consome uma licença.
+ *
+ * `userlogin` e `userid` são exigidos pelo servidor (`Validate('CreateRegister')`),
+ * e é por isso que o registro **acontece depois do login** — como no original,
+ * onde a aba de identificação só aparecia com o usuário autenticado.
+ */
+export async function registrarAparelho(input: RegistroAparelhoRequest) {
+  const { data } = await centralApi.post('/v1/application/register', {
+    ...registroAparelhoRequestSchema.parse(input),
+    systemcode: env.systemCode,
+  });
+
+  return registroResultadoSchema.parse(data);
 }

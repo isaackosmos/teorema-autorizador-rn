@@ -33,6 +33,8 @@ export interface Device {
 export interface User {
   jwt: string;
   id: number;
+  /** Login digitado, em maiúsculas. Vai no registro do aparelho (`userlogin`). */
+  username: string;
   /** Sempre 3 dígitos, com zero à esquerda. */
   code: string;
   name: string;

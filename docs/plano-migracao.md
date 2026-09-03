@@ -41,7 +41,7 @@ ponta a ponta.
 ```
 Fase 0  destravar    ── decisões 🔒 + react-native-webview        (paralelo a tudo)
    │
-Fase 1  BLOCO A      ── documento → configuração/licença → login → empresa
+Fase 1  BLOCO A      ── documento → conexão → login → registro/licença → empresa
    │
 Fase 2  BLOCO B      ── chrome do menu, histórico de usuários, troca de usuário/logout
    │
@@ -53,6 +53,10 @@ Fase 5  BLOCO E    │ ── push + tela de notificações   ← pode andar em 
    └──────────────┘
 Fase 6  BLOCO F      ── fallback primário/secundário/offline, cache de empresas, testes
 ```
+
+O login aparece **no meio** do Bloco A, e não depois dele: o servidor central exige
+`userlogin`/`userid` para registrar o aparelho, então o registro só acontece com um usuário do
+ERP autenticado — a mesma ordem do original. Ver a ficha A3/A5.
 
 Fases 4 e 5 são independentes entre si e só dependem do Bloco B (menu) e da sessão. A Fase 6 é
 incremental: cada item pode entrar assim que o bloco que ele protege existir.
@@ -109,7 +113,7 @@ documento como outro qualquer — o servidor é quem responde se é demo.
 **Pronto quando** — documento válido grava `device.companyDocument` + as três URLs e navega para
 `(auth)/configuracao`; documento inválido mostra erro inline e não altera a sessão.
 
-#### A3 · Configuração de servidor + A5 · Registro do aparelho e licença — `(auth)/configuracao`
+#### A3 · Configuração de servidor + A5 · Registro do aparelho e licença — `(auth)/configuracao` ✅
 
 As duas telas do índice (#3 e #5) vivem na mesma rota, em passos: **testar conexão → registrar
 aparelho → ler licença**. Separar em duas rotas só recria o vaivém de abas do original.
@@ -118,6 +122,24 @@ aparelho → ler licença**. Separar em duas rotas só recria o vaivém de abas 
 | ------ | ----------------------------------------------------------------------------------------------------------- |
 | Origem | `TFrmLoginBase` (abas Configuração, Bancos, Identificação, Licença, Concluído, Erro de licença)             |
 | API    | `tenantApi` `GET /v1/ping`, `GET /v1/auth/setup/{documento}` · `centralApi` `POST /v1/application/register` |
+
+Fechada: três passos numa rota (`resolverEtapa` decide qual aparece), endereços como campos de
+formulário validados no schema, ping no primário e depois no secundário elegendo
+`serverUrlActive`, base escolhida na lista — ou selecionada sozinha quando é uma só —, registro
+com apelido/responsável/contato, e `LicencaErro` como componente único parametrizado pelos três
+motivos. Sucesso grava `status = Ativo`, `registerId` e a validade, e navega direto: nenhuma
+espera artificial.
+
+**Ordem, e por que ela é essa:** o registro **exige um usuário do ERP**. O servidor central valida
+`userlogin`/`userid` em `Validate('CreateRegister')` e recusa a requisição sem eles, e é por isso
+que o original só mostrava a aba de identificação depois do login. Então o passo 2 desta rota
+manda para `(auth)/login` quando ainda não há usuário, e o `useLogin` volta para cá enquanto
+`device.status !== Ativo`. Duas consequências para quem mexer nisso depois: o `registerid` é
+**omitido** no primeiro login (é o que o Delphi fazia — mandar `null` derruba o login que precede
+o registro), e a sessão passou a guardar o `username` porque ele é o `userlogin` do registro.
+
+Aparelho bloqueado (`DEVICE_STATUS = 2`, persistido pelo login) cai direto no estado de licença em
+vez de tentar registrar de novo — do jeito antigo ele consumiria outra licença do contrato.
 
 **Preservar** — teste de ping no primário e, falhando, no secundário, gravando em
 `device.serverUrlActive` qual respondeu; escolha da base quando o tenant expõe mais de uma

@@ -1,5 +1,7 @@
 import { z } from 'zod';
 
+import { orionDateToIso } from '@/shared/lib/format/date';
+
 /**
  * Respostas do Orion vêm com os nomes das colunas do Firebird
  * (SCREAMING_SNAKE). Todo payload é traduzido para camelCase aqui, na borda —
@@ -84,3 +86,58 @@ export const enderecosServidorSchema = z
   }));
 
 export type EnderecosServidor = z.output<typeof enderecosServidorSchema>;
+
+/**
+ * `GET /v1/auth/setup/{documento}` — bases que o tenant expõe para o
+ * documento. O `token` identifica a base no header `tokendatabase`.
+ */
+export const baseDadosSchema = z
+  .object({
+    DB_TOKEN: z.string().min(1),
+    CUSTOMER_NAME: optionalText,
+  })
+  .transform((raw) => ({
+    token: raw.DB_TOKEN,
+    nome: raw.CUSTOMER_NAME,
+  }));
+
+export const baseDadosListSchema = z.array(baseDadosSchema);
+
+export type BaseDados = z.output<typeof baseDadosSchema>;
+
+/**
+ * Motivo de recusa do registro. O servidor central responde **200 com uma
+ * palavra em texto puro** nesses três casos (docs/analise §3.1) — não é erro
+ * HTTP, é resposta de negócio, e é o que alimenta o estado de erro de licença.
+ */
+export const MotivoLicenca = {
+  Bloqueado: 'bloqueado',
+  SemLicencas: 'licencas',
+  DemoExpirada: 'demo',
+} as const;
+
+export type MotivoLicenca = (typeof MotivoLicenca)[keyof typeof MotivoLicenca];
+
+/**
+ * `POST /v1/application/register` — ou o registro nasce (`{id, expiration}`),
+ * ou vem o motivo da recusa. O resultado é uma união discriminada: quem chama
+ * decide por `ok`, sem comparar texto solto.
+ */
+export const registroResultadoSchema = z.union([
+  z
+    .enum([MotivoLicenca.Bloqueado, MotivoLicenca.SemLicencas, MotivoLicenca.DemoExpirada])
+    .transform((motivo) => ({ ok: false as const, motivo })),
+  z
+    .object({
+      id: z.coerce.number(),
+      expiration: optionalText,
+    })
+    .transform((raw) => ({
+      ok: true as const,
+      registerId: raw.id,
+      // Demo tem validade; licença paga vem sem `expiration`.
+      registerExpiration: orionDateToIso(raw.expiration),
+    })),
+]);
+
+export type RegistroResultado = z.output<typeof registroResultadoSchema>;

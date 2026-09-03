@@ -15,25 +15,28 @@ import type { LoginPayload } from '@/features/auth/schemas/login.schema';
  */
 export function useLogin() {
   const router = useRouter();
-  const registerId = useSessionStore((s) => s.device.registerId);
+  const device = useSessionStore((s) => s.device);
   const setUser = useSessionStore((s) => s.setUser);
   const setDevice = useSessionStore((s) => s.setDevice);
 
   return useMutation({
-    mutationFn: (payload: LoginPayload) => {
-      if (registerId === null) {
-        throw new Error('Aparelho ainda não registrado.');
-      }
-      return login(payload, registerId);
-    },
-    onSuccess: ({ deviceStatus, ...user }) => {
+    // O aparelho pode não estar registrado ainda: é este login que autoriza o
+    // registro (o servidor central exige `userlogin`/`userid`), e a API omite
+    // o `registerid` quando ele não existe — igual ao original.
+    mutationFn: (payload: LoginPayload) => login(payload, device.registerId),
+    onSuccess: ({ deviceStatus, ...usuario }, payload) => {
       if (deviceStatus === DeviceStatus.Bloqueado) {
         setDevice({ status: DeviceStatus.Bloqueado });
         return;
       }
 
-      setUser(user);
-      router.replace('/(auth)/empresa');
+      // O login digitado é o `userlogin` do registro do aparelho. A senha
+      // nunca entra na sessão (docs/analise §7.1.9).
+      setUser({ ...usuario, username: payload.username });
+
+      router.replace(
+        device.status === DeviceStatus.Ativo ? '/(auth)/empresa' : '/(auth)/configuracao',
+      );
     },
   });
 }

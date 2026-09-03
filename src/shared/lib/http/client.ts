@@ -55,11 +55,16 @@ export const tenantApi = withErrorNormalization(createAxios({ timeout: env.httpT
 tenantApi.interceptors.request.use((config) => {
   const { device, user } = getSession();
 
-  if (!device.serverUrlActive) {
+  // O teste de conexão do onboarding (plano A3) passa a `baseURL` explícita:
+  // é justamente ele que descobre qual endereço vai virar `serverUrlActive`.
+  // Fora desse caso, quem manda é a sessão.
+  const baseURL = config.baseURL ?? device.serverUrlActive;
+
+  if (!baseURL) {
     throw new ApiError(0, 'Servidor do cliente ainda não foi resolvido.');
   }
 
-  config.baseURL = device.serverUrlActive;
+  config.baseURL = baseURL;
 
   if (user?.jwt) {
     config.headers.set('Authorization', `Bearer ${user.jwt}`);
