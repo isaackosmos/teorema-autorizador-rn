@@ -3,6 +3,9 @@ import { tenantApi } from '@/shared/lib/http/client';
 
 const BASE = '/v1/remoteauthorization';
 
+/** Sequência 0 não corresponde a nenhuma liberação real. */
+const ID_INVALIDO = '0';
+
 /**
  * Fila de liberações pendentes do usuário.
  * O filtro por tipo de solicitação e a alçada de desconto são aplicados no
@@ -10,7 +13,11 @@ const BASE = '/v1/remoteauthorization';
  */
 export async function listarPendentes(userCode: string) {
   const { data } = await tenantApi.get(`${BASE}/searchpending/${userCode}`);
-  return liberacaoListSchema.parse(data);
+
+  // `LIBERACAO_SEQUENCIA = 0` é linha inválida: não dá para reservar nem decidir.
+  // O app Delphi a listava e só reclamava no toque ("Identificador de liberação
+  // inválido", docs/analise §3.3) — aqui ela não chega à tela.
+  return liberacaoListSchema.parse(data).filter((liberacao) => liberacao.id !== ID_INVALIDO);
 }
 
 /** Marca a liberação como "em análise" para este usuário. */

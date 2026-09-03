@@ -183,15 +183,15 @@ offline, logo da empresa e ciclo de vida do push. Aqui isso se quebra em um **la
 (`src/app/(app)/_layout.tsx`) mais componentes em `shared/components/`, para que nenhuma tela
 autenticada precise redesenhar a casca.
 
-#### B1 · Menu principal — `(app)/menu` 🟨
+#### B1 · Menu principal — `(app)/menu` ✅
 
 |        |                                                                |
 | ------ | -------------------------------------------------------------- |
 | Origem | `TFrmPrincipal` + `TFrmPrincipalBase`                          |
 | API    | `tenantApi` · `GET /v1/application/photocompany/{codeCompany}` |
 
-Itens e navegação já estão prontos. Falta cabeçalho com usuário/empresa, logo, badge de
-notificações e indicador de offline.
+Fechada: itens, navegação, cabeçalho com usuário/empresa, logo em cache, badge de notificações e
+indicador de offline.
 
 **Preservar** — os cinco itens realmente visíveis (liberações + quatro web systems); o gatilho de
 push abrindo a tela certa (Bloco E).
@@ -232,14 +232,16 @@ item do histórico funciona.
 É o bloco com mais correções pendentes: cinco dos nove itens críticos da análise §7.1 estão aqui.
 A feature `features/liberacoes/` já tem API, schema, keys, dois hooks e o card.
 
-#### C1 · Fila de liberações — `(app)/liberacoes` 🟨
+#### C1 · Fila de liberações — `(app)/liberacoes` ✅
 
 |        |                                                        |
 | ------ | ------------------------------------------------------ |
 | Origem | `TFrmLiberacoes` › `TabItemNotificacoes`               |
 | API    | `GET /v1/remoteauthorization/searchpending/{usercode}` |
 
-Lista funcional; falta busca e ícone por tipo de solicitação.
+Fechada: busca sobre a lista já carregada, ícone por tipo de solicitação, pull-to-refresh e os
+três estados no `<QueryState>` — o vazio da busca fica no `ListEmptyComponent`, para o campo
+continuar na tela e dar para limpar o termo.
 
 **Preservar** — filtro de tipos por flags de `TEO_USUARIOS` e filtro de alçada de desconto continuam
 **no servidor**; borderôs pendentes chegam anexados à mesma fila (`TIPO_REGISTRO = 'BORDERO'`, já
@@ -253,8 +255,11 @@ exposto como `isBordero` no schema) e abrem direto o web system, sem passar por 
   carregada, um jeito só.
 - **Sem parse posicional da mensagem** (§7.1.6). O schema já expõe `cliente`, `vendedor`, `empresa` e
   `origemLabel` como campos próprios; o card usa isso e trata `mensagem` como texto simples.
-- Ícone por `solicitacao` vem de um mapa em módulo (`SOLICITACAO_ICON`, ao lado de `ORIGEM_LABEL`),
-  não de uma **aba oculta usada como depósito de bitmaps** (`TabItemIcones`, §7.3.22).
+- Ícone por `solicitacao` vem de um mapa em módulo (`SOLICITACAO_ICON` em
+  `features/liberacoes/lib/solicitacao-icon.ts`), não de uma **aba oculta usada como depósito de
+  bitmaps** (`TabItemIcones`, §7.3.22). Glifo Unicode em `<Text>`: o projeto não tem biblioteca de
+  ícones e este mapa não justificou instalar a primeira — trocar por `@expo/vector-icons` mexe só
+  nesse módulo.
 - Nada de fundo de item gerado com `MakeScreenshot` por linha renderizada (§7.3.22).
 - `id === '0'` é item inválido: some da lista, em vez de virar alerta ao tocar.
 
