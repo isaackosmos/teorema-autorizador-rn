@@ -521,8 +521,8 @@ Repetem as **Decisões em aberto** do `CLAUDE.md §7`, aqui amarradas ao bloco q
 | B3  | Reserva real da liberação (situação `'1'` + TTL)                                                                     | C2             | A trava de concorrência segue fictícia; o app não pode prometer exclusividade                            |
 | B4  | Código de erro estável no servidor                                                                                   | A2, A4, C2, F3 | Mapeamento de erro continua frágil, ainda que isolado num módulo                                         |
 | B5  | `react-native-webview`                                                                                               | Bloco D        | Dependência ainda não instalada                                                                          |
-| B6  | Mecanismo de sessão na WebView                                                                                       | Bloco D        | Escrever a tela antes da decisão significa reintroduzir o JWT no fragmento                               |
-| B7  | Caminho de push: FCM (Android) × APNs (iOS)                                                                          | Bloco E        | Push funciona só em uma das plataformas                                                                  |
+| B6  | Mecanismo de sessão na WebView. [`decisao-webview-sessao.md`](decisao-webview-sessao.md)                             | Bloco D        | Escrever a tela antes da decisão significa reintroduzir o JWT no fragmento                               |
+| B7  | Caminho de push: FCM (Android) × APNs (iOS). [`decisao-push.md`](decisao-push.md)                                    | Bloco E        | Push funciona só em uma das plataformas                                                                  |
 
 **Ordem de ataque sugerida:** B1 agora (trava tudo) → B4 e B3 durante o Bloco C → B2, B5 e B6 antes de
 abrir o Bloco D → B7 antes do Bloco E.

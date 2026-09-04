@@ -591,7 +591,10 @@ Precisam de resposta do time antes de fechar as telas correspondentes.
 3. **`react-native-webview`** ainda não foi instalado — é a próxima dependência, necessária
    para as telas 14–17.
 4. **Sessão na WebView.** O app original passa o JWT no fragmento da URL, onde ele fica no
-   histórico e no cache. Definir o novo mecanismo antes de implementar as telas web.
+   histórico e no cache. Definir o novo mecanismo antes de implementar as telas web. Opções
+   levantadas, com recomendação e comparação, em
+   [`docs/decisao-webview-sessao.md`](docs/decisao-webview-sessao.md) — **a decisão do time ainda
+   não foi tomada**.
    **Entra aqui também o contrato de parâmetros do atalho de borderô** (revisão do Bloco C, D7):
    `analise-liberacao.tsx` já empurra `sequencia` **e o texto livre de resposta do usuário**
    como parâmetro de URL para `(app)/web/[sistema]` — mesma classe de problema do JWT no
@@ -603,7 +606,9 @@ Precisam de resposta do time antes de fechar as telas correspondentes.
    usuário, e não há TTL: a trava é fictícia (`analise §7.1.2`, `§7.1.4`). O app não corrige
    isso sozinho.
 6. **Padronização de erro no servidor.** Precisamos de código de erro estável, não texto.
-7. **Push: FCM no Android e APNs no iOS.** O servidor precisa tratar os dois caminhos.
+7. **Push: FCM no Android e APNs no iOS.** O servidor precisa tratar os dois caminhos. Opções,
+   biblioteca recomendada e a configuração exigida em cada plataforma em
+   [`docs/decisao-push.md`](docs/decisao-push.md) — **a decisão do time ainda não foi tomada**.
 8. **`br.inf.teorema.autorizador4`** foi mantido como identificador em Android e iOS, para o
    app novo substituir o antigo na loja. Enquanto os dois coexistirem em desenvolvimento, use
    um identificador de variante para não sobrescrever a instalação legada.
