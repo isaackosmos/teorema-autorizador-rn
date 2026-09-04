@@ -1,5 +1,7 @@
 import { z } from 'zod';
 
+import { optionalText } from '@/shared/lib/schema/orion';
+
 /** Ciclo de vida da liberação (`VENDAS_LIBERACAO.LIBERACAO_LIBERADA`). */
 export const SituacaoLiberacao = {
   Livre: '0',
@@ -26,11 +28,6 @@ export const ORIGEM_LABEL: Record<string, string> = {
   CO: 'Cotação',
   V: 'Vendas Balcão',
 };
-
-const optionalText = z
-  .string()
-  .nullish()
-  .transform((value) => value?.trim() || null);
 
 /**
  * Item da fila de liberações.

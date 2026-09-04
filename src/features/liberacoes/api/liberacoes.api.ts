@@ -1,3 +1,7 @@
+import {
+  analiseCreditoSchema,
+  historicoComprasSchema,
+} from '@/features/liberacoes/schemas/cliente.schema';
 import { liberacaoListSchema } from '@/features/liberacoes/schemas/liberacao.schema';
 import { tenantApi } from '@/shared/lib/http/client';
 
@@ -38,12 +42,14 @@ export async function reprovar(id: string, resposta: string): Promise<void> {
   await tenantApi.post(`${BASE}/reject/${id}`, resposta);
 }
 
+/** Análise de crédito do cliente da liberação. `null` quando não há linha. */
 export async function buscarAnaliseCredito(empresa: string, cliente: string) {
   const { data } = await tenantApi.get(`${BASE}/customerdataanalytics/${empresa}/${cliente}`);
-  return data;
+  return analiseCreditoSchema.parse(data);
 }
 
+/** Títulos financeiros do cliente. */
 export async function buscarHistoricoCompras(empresa: string, cliente: string) {
   const { data } = await tenantApi.get(`${BASE}/customerpurchasehistory/${empresa}/${cliente}`);
-  return data;
+  return historicoComprasSchema.parse(data);
 }

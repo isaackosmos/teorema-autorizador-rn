@@ -358,12 +358,20 @@ vazio → preserva a situação anterior).
 **Pronto quando** — abrir reserva, voltar devolve, autorizar/reprovar invalida `liberacoesKeys.all`,
 e o erro do servidor aparece uma vez só, com a mensagem certa.
 
-#### C3 · Dados do cliente — `(app)/liberacoes/[id]/cliente`
+#### C3 · Dados do cliente — `(app)/liberacoes/[id]/cliente` ✅
 
 |        |                                                                                             |
 | ------ | ------------------------------------------------------------------------------------------- |
 | Origem | `TFrmLiberacoes` › `TabItemDetalhesCliente`                                                 |
 | API    | `customerdataanalytics/{empresa}/{cliente}` · `customerpurchasehistory/{empresa}/{cliente}` |
+
+Fechada: as duas respostas passam por `cliente.schema.ts` (`analiseCreditoSchema` tolera linha em
+array ou objeto solto; `historicoComprasSchema` devolve lista) e alimentam `useAnaliseCredito` /
+`useHistoricoCompras`. Empresa e cliente vêm do mesmo recorte de cache da análise (`useLiberacao`),
+não de parâmetro de rota. `camposDaAnalise` monta as linhas da análise de crédito e **descarta o que
+o servidor não mandou** — é por isso que não existe Saldo de Crédito nem Saldo Encontro de Contas.
+Os títulos entram numa `FlatList` com o crédito no cabeçalho, marcados por `isBaixado` (resolvido
+no schema, não no componente). Sem `Sleep`.
 
 **Preservar** — situação do cadastro, limite de crédito, primeira/última compra com valor, maior
 compra, média de atraso e a lista de títulos com marcação baixado/pendente

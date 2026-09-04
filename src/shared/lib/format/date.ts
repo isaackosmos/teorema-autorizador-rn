@@ -4,9 +4,22 @@ const dateTimeFormatter = new Intl.DateTimeFormat('pt-BR', {
   timeStyle: 'short',
 });
 
+/** ISO só com a data, sem hora nem fuso. */
+const SOMENTE_DATA = /^(\d{4})-(\d{2})-(\d{2})$/;
+
 /** `null` para entrada inválida — nunca "Invalid Date" na tela. */
 function parse(value: string | Date | null | undefined): Date | null {
   if (!value) return null;
+
+  // `new Date('2026-08-28')` é meia-noite **UTC**: em UTC-3 o formatador
+  // devolveria 27/08. Data sem hora é dia civil e é lida como dia local.
+  const civil = typeof value === 'string' ? SOMENTE_DATA.exec(value.trim()) : null;
+  if (civil) {
+    const [, ano, mes, dia] = civil;
+    const local = new Date(Number(ano), Number(mes) - 1, Number(dia));
+    return Number.isNaN(local.getTime()) ? null : local;
+  }
+
   const date = value instanceof Date ? value : new Date(value);
   return Number.isNaN(date.getTime()) ? null : date;
 }

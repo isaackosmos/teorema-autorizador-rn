@@ -137,6 +137,7 @@ teorema-autorizador-rn/
 │   │   ├── lib/http/           #   clientes Axios + ApiError
 │   │   ├── lib/storage/        #   MMKV + adaptador do Zustand
 │   │   ├── lib/format/         #   moeda, data, cn
+│   │   ├── lib/schema/         #   peças de Zod dos payloads do Orion
 │   │   ├── stores/             #   sessão (aparelho + usuário + empresa)
 │   │   ├── hooks/              #   hooks genéricos
 │   │   └── types/              #   tipos compartilhados
@@ -262,9 +263,10 @@ export type Liberacao = z.output<typeof liberacaoSchema>;
 
 O tipo do domínio é **derivado** do schema (`z.output`), nunca escrito duas vezes.
 
-Helper de Zod usado por uma feature só fica local ao arquivo de schema (é o caso de
-`optionalText`, hoje repetido em `auth.schema.ts` e `liberacao.schema.ts`). Ao aparecer o
-**terceiro** uso, ele sobe para `src/shared/lib/schema/` — não vire uma quarta cópia.
+Helper de Zod usado por uma feature só fica local ao arquivo de schema. Ao aparecer o
+**terceiro** uso, ele sobe para `src/shared/lib/schema/` — não vire uma quarta cópia. Foi o
+caminho do `optionalText`: nasceu duplicado em `auth.schema.ts` e `liberacao.schema.ts` e o
+terceiro uso (`cliente.schema.ts`) o levou para `shared/lib/schema/orion.ts`.
 
 ### 4.3 Query keys — `features/<feature>/api/<feature>.keys.ts`
 
@@ -501,7 +503,7 @@ Legenda: ⬜ pendente · 🟨 em andamento · ✅ concluído
 | 8   | Menu principal                                | `(app)/menu`                    | `TFrmPrincipal` + `TFrmPrincipalBase`       | ✅ cabeçalho (usuário, empresa, logo em cache), badge de notificações e aviso de offline |
 | 9   | Fila de liberações                            | `(app)/liberacoes`              | `TFrmLiberacoes` › `TabItemNotificacoes`    | ✅ busca sobre a lista carregada, ícone por tipo, pull-to-refresh                        |
 | 10  | Análise da liberação                          | `(app)/liberacoes/[id]`         | `TFrmLiberacoes` › `TabItemDetalhes`        | ✅ reserva ao abrir, devolução ao sair sem decidir, decisão com texto de resposta        |
-| 11  | Dados do cliente                              | `(app)/liberacoes/[id]/cliente` | `TFrmLiberacoes` › `TabItemDetalhesCliente` | ⬜                                                                                       |
+| 11  | Dados do cliente                              | `(app)/liberacoes/[id]/cliente` | `TFrmLiberacoes` › `TabItemDetalhesCliente` | ✅ crédito e títulos em duas queries com schema; campo sem valor não vira linha          |
 | 12  | Feedback da decisão                           | (parte de #10)                  | `TabItemFeedbackAceito` / `Recusado`        | ✅ um componente para as duas decisões, sem espera artificial antes de voltar            |
 | 13  | Notificações                                  | `(app)/notificacoes`            | `TFrmNotificacao`                           | ⬜                                                                                       |
 | 14  | Web system — Pedidos de Compra                | `sistema=autcompras`            | `TFrmAutComprasWeb`                         | ⬜                                                                                       |

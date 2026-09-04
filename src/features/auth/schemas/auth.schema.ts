@@ -1,6 +1,7 @@
 import { z } from 'zod';
 
 import { orionDateToIso } from '@/shared/lib/format/date';
+import { optionalText } from '@/shared/lib/schema/orion';
 
 /**
  * Respostas do Orion vêm com os nomes das colunas do Firebird
@@ -27,11 +28,6 @@ export const loginResponseSchema = z
   }));
 
 export type LoginResponse = z.output<typeof loginResponseSchema>;
-
-const optionalText = z
-  .string()
-  .nullish()
-  .transform((value) => value?.trim() || null);
 
 /**
  * `GET /v1/application/companyinformation` — empresa **licenciada** para o par
