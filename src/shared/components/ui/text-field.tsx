@@ -24,6 +24,7 @@ export function TextField<T extends FieldValues>({
   label,
   className,
   ref,
+  multiline = false,
   ...rest
 }: TextFieldProps<T>) {
   return (
@@ -41,8 +42,13 @@ export function TextField<T extends FieldValues>({
             onBlur={field.onBlur}
             accessibilityLabel={label}
             placeholderTextColor="rgb(148 163 184)"
+            multiline={multiline}
+            // Texto longo começa em cima e o campo cresce com o conteúdo, em
+            // vez de rolar dentro de altura fixa (docs/analise §7.2.17).
+            textAlignVertical={multiline ? 'top' : undefined}
             className={cn(
-              'h-12 rounded-xl border bg-surface px-4 text-base text-foreground',
+              'rounded-xl border bg-surface px-4 text-base text-foreground',
+              multiline ? 'min-h-24 py-3' : 'h-12',
               fieldState.error ? 'border-recusado' : 'border-border',
               className,
             )}

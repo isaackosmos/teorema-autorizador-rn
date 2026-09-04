@@ -314,7 +314,7 @@ exposto como `isBordero` no schema) e abrem direto o web system, sem passar por 
 **Pronto quando** — a busca filtra por cliente/mensagem/origem, o ícone é correto por tipo, há
 pull-to-refresh e os três estados estão cobertos por `<QueryState>`.
 
-#### C2 · Análise da liberação — `(app)/liberacoes/[id]`
+#### C2 · Análise da liberação — `(app)/liberacoes/[id]` ✅
 
 |        |                                                                                                                  |
 | ------ | ---------------------------------------------------------------------------------------------------------------- |
@@ -322,6 +322,13 @@ pull-to-refresh e os três estados estão cobertos por `<QueryState>`.
 | API    | `reserve/{id}/{usercode}` na entrada · `release/{id}/{usercode}` na saída sem decidir · `authorize\|reject/{id}` |
 
 A tela mais delicada do app: é onde o dinheiro é decidido.
+
+Fechada: a análise recorta o cache de `searchpending` (`use-liberacao.ts`) — o Orion não tem rota de
+item; a reserva sai em `use-reserva-liberacao.ts`, que devolve no unmount só o que **esta** sessão
+reservou e ainda não decidiu; a decisão vai por `useDecidirLiberacao` e o feedback é estado da rota,
+não da lista. O retorno do borderô entra pelo `bordero-retorno.store.ts`, validado por
+`borderoRetornoSchema`, e vira decisão em `decisaoDoBordero` (`S`/`P` → autoriza, `N` → reprova,
+vazio → não decide). Sem "Sugestão IA", sem cadeado, sem `Sleep`.
 
 **Preservar** — reserva ao abrir; devolução ao sair sem decidir (e só se a liberação ainda estiver em
 `'1'` para o próprio usuário); ciclo `0 → 1 → 2|3`; o texto livre de resposta acompanhando a decisão;
@@ -373,7 +380,10 @@ compra, média de atraso e a lista de títulos com marcação baixado/pendente
 **Pronto quando** — as duas queries têm schema, a tela cobre carregando/erro/vazio e nenhum campo
 mostra texto de placeholder de desenvolvimento.
 
-#### C4 · Feedback da decisão — parte de C2
+#### C4 · Feedback da decisão — parte de C2 ✅
+
+Fechada: `decisao-feedback.tsx`, um componente para as duas decisões, renderizado pela própria rota
+de C2 depois do 2xx. Sem espera antes de voltar.
 
 **Corrigir** — o original ia para uma aba de feedback e dava `Sleep(2000)` obrigatório antes de voltar
 (§7.2.13). Aqui: feedback é estado da própria tela (ou um toast), a invalidação da query já atualiza a
@@ -403,7 +413,8 @@ inclusive com typo no nome de duas units (§7.3.27).
 **Preservar** — o conjunto de parâmetros que cada sistema espera (`autcompras`/`autcotacao`:
 `baseUrl, token, userId, companyId, codeCompany, userCode`; `reqcompras`: `baseUrl, token, userId`);
 a ponte de retorno que fecha a tela; para o `autorizador` aberto a partir de uma liberação, o JSON de
-saída com `{ situacao, resposta }`.
+saída com `{ situacao, resposta }` — o contrato já existe do lado da liberação (C2): validar com
+`borderoRetornoSchema` e publicar em `useBorderoRetornoStore`, que é de onde a análise lê.
 
 **Corrigir**
 

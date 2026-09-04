@@ -1,25 +1,51 @@
-import { useLocalSearchParams } from 'expo-router';
-import { Text, View } from 'react-native';
+import { useLocalSearchParams, useRouter } from 'expo-router';
+import { useState } from 'react';
 
+import { AnaliseLiberacao } from '@/features/liberacoes/components/analise-liberacao';
+import { DecisaoFeedback } from '@/features/liberacoes/components/decisao-feedback';
+import { useLiberacao } from '@/features/liberacoes/hooks/use-liberacao';
+import { QueryState } from '@/shared/components/ui/query-state';
 import { Screen } from '@/shared/components/ui/screen';
 
+import type { Decisao } from '@/features/liberacoes/schemas/liberacao.schema';
+
 /**
- * PENDENTE — tela de análise da liberação.
+ * Análise da liberação — onde o dinheiro é decidido (plano C2).
  *
- * Ao migrar, preservar: reserva ao abrir (`reserve/{id}/{usercode}`), devolução
- * ao sair sem decidir (`release/...`), e decisão via `useDecidirLiberacao`.
- * Não reproduzir: o "cadeado" antes dos botões, a "Sugestão IA" falsa e o
- * `Sleep(2000)` da tela de feedback (docs/analise §7.1.1, §7.2.13, §7.2.16).
+ * A rota só compõe: `useLiberacao` recorta a fila, `<AnaliseLiberacao>` cuida
+ * de reserva, devolução e decisão, e o feedback é estado desta tela.
  */
 export default function LiberacaoDetalheScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
+  const router = useRouter();
+  const [decidida, setDecidida] = useState<Decisao | null>(null);
+
+  const { data: liberacao, isLoading, error, refetch } = useLiberacao(id);
+
+  // Decidida, a liberação sai da fila na invalidação — por isso o feedback vive
+  // aqui, e não depende de ainda achar o item na lista.
+  if (decidida) {
+    return (
+      <Screen edges={['bottom']}>
+        <DecisaoFeedback decisao={decidida} onVoltar={() => router.back()} />
+      </Screen>
+    );
+  }
+
+  const estado = (
+    <QueryState
+      isLoading={isLoading}
+      error={error}
+      onRetry={refetch}
+      isEmpty={!liberacao}
+      emptyMessage="Esta liberação não está mais na fila."
+    />
+  );
+  if (estado || !liberacao) return <Screen edges={['bottom']}>{estado}</Screen>;
 
   return (
     <Screen edges={['bottom']}>
-      <View className="flex-1 items-center justify-center gap-2 px-8">
-        <Text className="text-lg font-semibold text-foreground">Liberação {id}</Text>
-        <Text className="text-center text-xs text-pendente">Tela ainda não migrada.</Text>
-      </View>
+      <AnaliseLiberacao liberacao={liberacao} onConcluir={setDecidida} />
     </Screen>
   );
 }

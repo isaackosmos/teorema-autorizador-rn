@@ -59,6 +59,15 @@ comando para rodar "um teste"; os únicos portões automáticos são o `typechec
 dos hooks abaixo, e o projeto não tem CI. Ao instalar o primeiro runner, atualize esta seção e a
 linha "Testes automatizados" da §6.
 
+Enquanto isso, **o portão de qualquer alteração é este par**, rodado antes de commitar:
+
+```bash
+npm run typecheck && npm run lint
+```
+
+O `pre-commit` cobre menos do que isso (o `lint-staged` só olha os arquivos staged) e o
+`pre-push` só roda o `typecheck` — rode os dois à mão sobre o projeto inteiro.
+
 ### Pré-requisitos de runtime
 
 Duas coisas derrubam o app antes de qualquer tela aparecer. Não são bugs — são a ordem do plano.
@@ -122,7 +131,8 @@ teorema-autorizador-rn/
 │   │       └── lib/            #   utilitários só desta feature
 │   │
 │   ├── shared/                 # REUTILIZÁVEL POR TODAS AS FEATURES
-│   │   ├── components/ui/      #   Button, Screen, TextField, QueryState…
+│   │   ├── components/ui/      #   Screen, Button, TextField, QueryState,
+│   │   │                       #   AppHeader, OfflineBanner, SearchField
 │   │   ├── config/             #   env, queryClient
 │   │   ├── lib/http/           #   clientes Axios + ApiError
 │   │   ├── lib/storage/        #   MMKV + adaptador do Zustand
@@ -227,6 +237,15 @@ export async function listarPendentes(userCode: string) {
   **Decida sempre por `status`, nunca comparando a mensagem** — foi assim que o app Delphi
   criou código morto (`analise §7.1.3`).
 
+**O prefixo do path não decide o cliente.** `/v1/application/*` existe nos **dois** servidores
+com rotas diferentes: quem decide é de quem é o dado — licença e aparelho são do central,
+qualquer coisa que dependa da base do cliente é do tenant. Superfície em uso hoje:
+
+| Cliente      | Rotas                                                                                                                                                                                                                   |
+| ------------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `centralApi` | `/v1/application/companyinformation` · `/v1/application/getserverurl` · `/v1/application/register`                                                                                                                      |
+| `tenantApi`  | `/v1/ping` · `/v1/auth/login` · `/v1/auth/setup/:documento` · `/v1/application/companyfromuser/:userCode` · `/v1/application/photocompany/:companyCode` · `/v1/remoteauthorization/*` (fila, reserva, decisão, cliente) |
+
 ### 4.2 Schema de payload — `features/<feature>/schemas/<x>.schema.ts`
 
 Referência: `src/features/liberacoes/schemas/liberacao.schema.ts`
@@ -242,6 +261,10 @@ export type Liberacao = z.output<typeof liberacaoSchema>;
 ```
 
 O tipo do domínio é **derivado** do schema (`z.output`), nunca escrito duas vezes.
+
+Helper de Zod usado por uma feature só fica local ao arquivo de schema (é o caso de
+`optionalText`, hoje repetido em `auth.schema.ts` e `liberacao.schema.ts`). Ao aparecer o
+**terceiro** uso, ele sobe para `src/shared/lib/schema/` — não vire uma quarta cópia.
 
 ### 4.3 Query keys — `features/<feature>/api/<feature>.keys.ts`
 
@@ -274,6 +297,16 @@ export function useLiberacoesPendentes() {
 
 O hook liga API + sessão + cache. Devolve o resultado do TanStack Query **sem embrulhar**:
 a tela precisa de `isLoading`, `error`, `refetch`, `isRefetching`.
+
+Duas variantes já existem no repo e valem como referência:
+
+- **Hook com ciclo de vida** (`use-reserva-liberacao.ts`): dispara ao montar e desfaz no
+  unmount. Guarde a promessa da ida e **espere-a resolver antes de desfazer** — sair antes da
+  resposta chegar deixaria a liberação presa (`analise §7.1.4`). Enquanto o efeito não roda o
+  status é `idle`, e `idle` também trava a ação: decidir aí seria decidir sem reservar.
+- **Query que só observa o cache** (`use-notificacoes-nao-lidas.ts`): `queryFn: skipToken`
+  desliga o fetch enquanto o endpoint não existe no servidor. É assim que se deixa um número
+  pendente — cache vazio, nunca um zero decorativo nem dado inventado (`analise §7.2.11`).
 
 ### 4.5 Hook de escrita — `useMutation` + invalidação
 
@@ -358,7 +391,20 @@ servidor é do TanStack Query — nunca copie a resposta de uma query para dentr
 - Selecione fatias, não o store inteiro: `useSessionStore((s) => s.user)`.
 - Fora de componente (interceptor, serviço), use `getSession()`.
 - `persist` + MMKV: use `partialize` para não gravar estado de runtime.
+- O `merge` padrão do `persist` é **raso**: quando o estado tem objeto aninhado, passe um `merge`
+  que complete com o valor vazio (`session.store.ts`) ou revalide o disco por schema
+  (`historico-usuarios.store.ts`). Disco é entrada não confiável, igual à rede.
 - **Nunca persista senha.**
+
+Tudo mora numa instância única de MMKV (`shared/lib/storage/mmkv.ts`). Chave de `persist` é o
+nome do store em kebab-case; chave escrita à mão é `dominio:identificador`. O inventário
+completo — é ele que responde "por que esse dado sobreviveu ao logout":
+
+| Chave                 | Quem escreve                                       | Conteúdo                                     |
+| --------------------- | -------------------------------------------------- | -------------------------------------------- |
+| `session`             | `shared/stores/session.store.ts`                   | aparelho, usuário, empresa (sem `online`)    |
+| `historico-usuarios`  | `features/auth/stores/historico-usuarios.store.ts` | até 5 logins + data do último acesso         |
+| `empresas:<userCode>` | `features/empresa/lib/empresas-cache.ts`           | lista de empresas do usuário (cache offline) |
 
 ### 4.9 Estilo com NativeWind
 
@@ -371,6 +417,33 @@ projeto é `style={{ flex: 1 }}` no `GestureHandlerRootView`, que exige estilo r
 - Classes condicionais via `cn()` de `@/shared/lib/format/cn`.
 - Nada de número mágico de layout: o app Delphi calculava altura com
   `200 + ((nLinhas - 6) * 21)` (`analise §7.2.17`). Use flexbox.
+
+### 4.10 Cache offline — MMKV como `initialData` da query
+
+Referência: `src/features/empresa/lib/empresas-cache.ts` + `use-empresas-do-usuario.ts`
+
+É a **única** exceção ao "nunca copie a resposta de uma query" da §4.8, e existe por um motivo
+só: quando nem o primário nem o secundário respondem, a tela precisa mostrar a última lista
+conhecida (`analise §3.1`).
+
+- A cópia em disco alimenta o `initialData` da query. A fonte da verdade em memória continua
+  sendo o cache do TanStack Query — o dado **não** vira estado de um store.
+- A releitura passa por Zod antes de virar `initialData`, e `JSON.parse` vai dentro de
+  `try/catch`: o disco pode estar velho ou corrompido.
+- Chave por usuário (`empresas:<userCode>`), nunca uma global — o aparelho é compartilhado.
+
+### 4.11 Retorno de uma rota para a anterior — store efêmero consumido uma vez
+
+Referência: `src/features/liberacoes/stores/bordero-retorno.store.ts`
+
+O Expo Router não devolve valor para a tela que navegou. Quando a tela de destino produz um
+resultado, ele é publicado num store **não persistido** e consumido uma única vez pelo dono:
+
+- quem produz chama `publicar(payload)` com o payload já validado por schema;
+- quem espera chama `consumir(id)`, que só devolve se o `id` for o que ele mesmo abriu e limpa
+  o store na leitura — assim o resultado não é aplicado duas vezes;
+- nada de concatenar dado em URL (`delphi://<json>` do original, `analise §7.1.9`) nem de
+  guardar o retorno numa variável de módulo.
 
 ---
 
@@ -427,9 +500,9 @@ Legenda: ⬜ pendente · 🟨 em andamento · ✅ concluído
 | --- | --------------------------------------------- | ------------------------------- | ------------------------------------------- | ---------------------------------------------------------------------------------------- |
 | 8   | Menu principal                                | `(app)/menu`                    | `TFrmPrincipal` + `TFrmPrincipalBase`       | ✅ cabeçalho (usuário, empresa, logo em cache), badge de notificações e aviso de offline |
 | 9   | Fila de liberações                            | `(app)/liberacoes`              | `TFrmLiberacoes` › `TabItemNotificacoes`    | ✅ busca sobre a lista carregada, ícone por tipo, pull-to-refresh                        |
-| 10  | Análise da liberação                          | `(app)/liberacoes/[id]`         | `TFrmLiberacoes` › `TabItemDetalhes`        | ⬜                                                                                       |
+| 10  | Análise da liberação                          | `(app)/liberacoes/[id]`         | `TFrmLiberacoes` › `TabItemDetalhes`        | ✅ reserva ao abrir, devolução ao sair sem decidir, decisão com texto de resposta        |
 | 11  | Dados do cliente                              | `(app)/liberacoes/[id]/cliente` | `TFrmLiberacoes` › `TabItemDetalhesCliente` | ⬜                                                                                       |
-| 12  | Feedback da decisão                           | (parte de #10)                  | `TabItemFeedbackAceito` / `Recusado`        | ⬜                                                                                       |
+| 12  | Feedback da decisão                           | (parte de #10)                  | `TabItemFeedbackAceito` / `Recusado`        | ✅ um componente para as duas decisões, sem espera artificial antes de voltar            |
 | 13  | Notificações                                  | `(app)/notificacoes`            | `TFrmNotificacao`                           | ⬜                                                                                       |
 | 14  | Web system — Pedidos de Compra                | `sistema=autcompras`            | `TFrmAutComprasWeb`                         | ⬜                                                                                       |
 | 15  | Web system — Autorização de Cotação           | `sistema=autcotacao`            | `TFrmAutCotacaoWeb`                         | ⬜                                                                                       |
@@ -451,17 +524,18 @@ idênticos para isso (`analise §7.3.21`) — não recrie o arquivo por sistema.
 
 ### Infraestrutura transversal
 
-| Item                                                             | Status                                                                                                                                               |
-| ---------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Clientes HTTP (central + tenant) com `ApiError`                  | ✅                                                                                                                                                   |
-| Sessão persistida em MMKV (aparelho, usuário, empresa)           | ✅                                                                                                                                                   |
-| Query client com política de retry por status                    | ✅                                                                                                                                                   |
-| Componentes base (`Screen`, `Button`, `TextField`, `QueryState`) | ✅                                                                                                                                                   |
-| Tokens de tema light/dark                                        | ✅                                                                                                                                                   |
-| Fallback primário → secundário → offline                         | 🟨 (o teste primário → secundário existe no onboarding e elege `serverUrlActive`; falta refazê-lo em runtime quando o endereço ativo cai — plano F1) |
-| Push notification (FCM / APNs) e roteamento por notificação      | ⬜                                                                                                                                                   |
-| Cache offline de empresas                                        | 🟨 (a lista do usuário já é gravada e relida do MMKV pela tela 6; falta o login offline em si — plano F2)                                            |
-| Testes automatizados                                             | ⬜ (nenhum runner instalado — §1)                                                                                                                    |
+| Item                                                                     | Status                                                                                                                                               |
+| ------------------------------------------------------------------------ | ---------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Clientes HTTP (central + tenant) com `ApiError`                          | ✅                                                                                                                                                   |
+| Sessão persistida em MMKV (aparelho, usuário, empresa)                   | ✅                                                                                                                                                   |
+| Query client com política de retry por status                            | ✅                                                                                                                                                   |
+| Componentes base (`Screen`, `Button`, `TextField`, `QueryState`)         | ✅                                                                                                                                                   |
+| Chrome da área autenticada (`AppHeader`, `OfflineBanner`, `SearchField`) | ✅ o `OfflineBanner` já lê `session.online` sozinho — não repita o aviso na tela                                                                     |
+| Tokens de tema light/dark                                                | ✅                                                                                                                                                   |
+| Fallback primário → secundário → offline                                 | 🟨 (o teste primário → secundário existe no onboarding e elege `serverUrlActive`; falta refazê-lo em runtime quando o endereço ativo cai — plano F1) |
+| Push notification (FCM / APNs) e roteamento por notificação              | ⬜                                                                                                                                                   |
+| Cache offline de empresas                                                | 🟨 (a lista do usuário já é gravada e relida do MMKV pela tela 6; falta o login offline em si — plano F2)                                            |
+| Testes automatizados                                                     | ⬜ (nenhum runner instalado — §1)                                                                                                                    |
 
 ---
 

@@ -2,12 +2,12 @@ import { useMutation, useQueryClient } from '@tanstack/react-query';
 
 import { autorizar, reprovar } from '@/features/liberacoes/api/liberacoes.api';
 import { liberacoesKeys } from '@/features/liberacoes/api/liberacoes.keys';
-
-type Decisao = 'autorizar' | 'reprovar';
+import { Decisao } from '@/features/liberacoes/schemas/liberacao.schema';
 
 interface DecidirVariables {
   id: string;
   decisao: Decisao;
+  /** Texto livre que acompanha a decisão (`LIBERACAO_RESPOSTA`). */
   resposta: string;
 }
 
@@ -25,7 +25,7 @@ export function useDecidirLiberacao() {
 
   return useMutation({
     mutationFn: ({ id, decisao, resposta }: DecidirVariables) =>
-      decisao === 'autorizar' ? autorizar(id, resposta) : reprovar(id, resposta),
+      decisao === Decisao.Autorizar ? autorizar(id, resposta) : reprovar(id, resposta),
     onSuccess: () => queryClient.invalidateQueries({ queryKey: liberacoesKeys.all }),
   });
 }

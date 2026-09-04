@@ -103,3 +103,16 @@ export const decisaoSchema = z.object({
 });
 
 export type DecisaoInput = z.infer<typeof decisaoSchema>;
+
+/**
+ * Decisão que o usuário toma sobre a liberação (`2` aprovada / `3` reprovada).
+ * As duas rotas têm a mesma forma e compartilham uma mutation — no original
+ * `AutorizaRequisicao` e `ReprovaRequisicao` eram o mesmo código copiado
+ * (docs/analise §7.3.21).
+ */
+export const Decisao = {
+  Autorizar: 'autorizar',
+  Reprovar: 'reprovar',
+} as const;
+
+export type Decisao = (typeof Decisao)[keyof typeof Decisao];

@@ -13,6 +13,12 @@ import { Screen } from '@/shared/components/ui/screen';
  * Depende de `react-native-webview`, ainda não instalado. Ao implementar:
  * NÃO passar o JWT no fragmento da URL como o app original faz — ele fica no
  * histórico e no cache da WebView (docs/analise §7.1.9).
+ *
+ * Aberto pela análise de uma liberação de borderô (plano C2), recebe
+ * `sequencia` e `resposta` por parâmetro e, ao fechar, devolve o resultado
+ * validado por `borderoRetornoSchema` para
+ * `useBorderoRetornoStore.publicar()` — é de lá que a análise lê a situação
+ * (`S`/`P`/`N`/vazio). O app não recalcula essa situação em lugar nenhum.
  */
 export default function WebSystemScreen() {
   const { sistema } = useLocalSearchParams<{ sistema: string }>();

@@ -37,10 +37,15 @@ Os hooks de Git são instalados pelo `npm install` (Husky): `pre-commit` roda `l
   Clean Code, índice das telas a migrar e decisões em aberto. **Leia antes de contribuir.**
 - **[`docs/analise-app-original.md`](docs/analise-app-original.md)** — inventário do app Delphi
   legado: telas, regras de negócio, endpoints, modelos de dados e falhas conhecidas.
+- **[`docs/plano-migracao.md`](docs/plano-migracao.md)** — blocos A–F, ordem de ataque e
+  critério de pronto. É o roteiro; o placar continua na seção 6 do `CLAUDE.md`.
+- **[`docs/decisao-hash-senha.md`](docs/decisao-hash-senha.md)** — a decisão de senha do login.
 
 ## Estado
 
 Migração em andamento. O índice de telas com status fica na seção 6 do `CLAUDE.md`.
 
-> O login ainda não funciona: o contrato de senha com o servidor (MD5 sem salt) está em
-> aberto — ver `CLAUDE.md`, seção 7.
+> O login real ainda não passa: do lado do app a decisão está tomada — senha em texto puro
+> sobre TLS, com o hash 100% no Orion — mas o `/v1/auth/login` ainda compara
+> `MD5(Decrypt(USUARIO_SENHA))`. Falta o servidor subir o novo contrato; ver
+> `CLAUDE.md`, seção 7.1, e `docs/decisao-hash-senha.md`.
