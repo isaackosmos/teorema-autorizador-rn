@@ -5,7 +5,7 @@ import { FlatList, RefreshControl, View } from 'react-native';
 import { LiberacaoCard } from '@/features/liberacoes/components/liberacao-card';
 import { useLiberacoesPendentes } from '@/features/liberacoes/hooks/use-liberacoes-pendentes';
 import { filtrarLiberacoes } from '@/features/liberacoes/lib/filtrar-liberacoes';
-import { QueryState } from '@/shared/components/ui/query-state';
+import { QueryState, queryState } from '@/shared/components/ui/query-state';
 import { Screen } from '@/shared/components/ui/screen';
 import { SearchField } from '@/shared/components/ui/search-field';
 
@@ -27,15 +27,13 @@ export default function LiberacoesScreen() {
   const visiveis = useMemo(() => filtrarLiberacoes(data ?? [], busca), [data, busca]);
   const termo = busca.trim();
 
-  const estado = (
-    <QueryState
-      isLoading={isLoading}
-      error={error}
-      onRetry={refetch}
-      isEmpty={data?.length === 0}
-      emptyMessage="Nenhuma liberação pendente."
-    />
-  );
+  const estado = queryState({
+    isLoading,
+    error,
+    onRetry: refetch,
+    isEmpty: data?.length === 0,
+    emptyMessage: 'Nenhuma liberação pendente.',
+  });
 
   if (estado) return <Screen edges={['bottom']}>{estado}</Screen>;
 

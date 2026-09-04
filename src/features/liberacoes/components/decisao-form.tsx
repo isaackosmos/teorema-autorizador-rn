@@ -7,12 +7,13 @@ import { Button } from '@/shared/components/ui/button';
 import { TextField } from '@/shared/components/ui/text-field';
 
 import type { DecisaoInput } from '@/features/liberacoes/schemas/liberacao.schema';
+import type { ApiError } from '@/shared/lib/http/errors';
 
 interface DecisaoFormProps {
   onDecidir: (decisao: Decisao, resposta: string) => void;
   /** Decisão em trânsito no servidor; `null` quando não há nenhuma. */
   decisaoPendente: Decisao | null;
-  erro: Error | null;
+  erro: ApiError | null;
   /** Trava os botões enquanto a reserva não voltou. */
   disabled?: boolean;
   /**

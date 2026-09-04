@@ -340,15 +340,13 @@ chamar `axios`, guardar dado de servidor em `useState`, nem validar formulário 
 export default function LiberacoesScreen() {
   const { data, isLoading, error, refetch, isRefetching } = useLiberacoesPendentes();
 
-  const estado = (
-    <QueryState
-      isLoading={isLoading}
-      error={error}
-      onRetry={refetch}
-      isEmpty={data?.length === 0}
-      emptyMessage="Nenhuma liberação pendente."
-    />
-  );
+  const estado = queryState({
+    isLoading,
+    error,
+    onRetry: refetch,
+    isEmpty: data?.length === 0,
+    emptyMessage: 'Nenhuma liberação pendente.',
+  });
   if (estado) return <Screen>{estado}</Screen>;
 
   return (
@@ -360,7 +358,15 @@ export default function LiberacoesScreen() {
 ```
 
 Toda tela é embrulhada em `<Screen>` (safe area + fundo do tema) e trata os três estados
-com `<QueryState>`.
+pelo módulo `shared/components/ui/query-state`, que exporta **duas formas da mesma coisa**:
+
+- **`queryState(props)`** — função, devolve `ReactElement | null`. É a que a tela usa para
+  decidir se sai antes. Chamar em JSX (`const estado = <QueryState … />`) **não funciona**:
+  o resultado é um elemento React, ou seja um objeto sempre truthy, e o `if (estado)` passa a
+  valer sempre — a tela devolve um `<Screen>` vazio, sem erro nem log. Foi o que aconteceu em
+  seis telas antes da revisão do Bloco C.
+- **`<QueryState>`** — o componente, para quando o estado é _filho_ de outro elemento e não
+  porta de saída: `ListEmptyComponent` de uma `FlatList`, por exemplo.
 
 ### 4.7 Formulário — React Hook Form + Zod
 
@@ -501,15 +507,30 @@ Legenda: ⬜ pendente · 🟨 em andamento · ✅ concluído
 | #   | Tela                                          | Rota                            | Origem no app Delphi                        | Status                                                                                   |
 | --- | --------------------------------------------- | ------------------------------- | ------------------------------------------- | ---------------------------------------------------------------------------------------- |
 | 8   | Menu principal                                | `(app)/menu`                    | `TFrmPrincipal` + `TFrmPrincipalBase`       | ✅ cabeçalho (usuário, empresa, logo em cache), badge de notificações e aviso de offline |
-| 9   | Fila de liberações                            | `(app)/liberacoes`              | `TFrmLiberacoes` › `TabItemNotificacoes`    | ✅ busca sobre a lista carregada, ícone por tipo, pull-to-refresh                        |
-| 10  | Análise da liberação                          | `(app)/liberacoes/[id]`         | `TFrmLiberacoes` › `TabItemDetalhes`        | ✅ reserva ao abrir, devolução ao sair sem decidir, decisão com texto de resposta        |
-| 11  | Dados do cliente                              | `(app)/liberacoes/[id]/cliente` | `TFrmLiberacoes` › `TabItemDetalhesCliente` | ✅ crédito e títulos em duas queries com schema; campo sem valor não vira linha          |
-| 12  | Feedback da decisão                           | (parte de #10)                  | `TabItemFeedbackAceito` / `Recusado`        | ✅ um componente para as duas decisões, sem espera artificial antes de voltar            |
+| 9   | Fila de liberações                            | `(app)/liberacoes`              | `TFrmLiberacoes` › `TabItemNotificacoes`    | ✅¹ busca sobre a lista carregada, ícone por tipo, pull-to-refresh                       |
+| 10  | Análise da liberação                          | `(app)/liberacoes/[id]`         | `TFrmLiberacoes` › `TabItemDetalhes`        | ✅¹ reserva ao abrir, devolução ao sair sem decidir, decisão com texto de resposta       |
+| 11  | Dados do cliente                              | `(app)/liberacoes/[id]/cliente` | `TFrmLiberacoes` › `TabItemDetalhesCliente` | ✅¹ crédito e títulos em duas queries com schema; campo sem valor não vira linha         |
+| 12  | Feedback da decisão                           | (parte de #10)                  | `TabItemFeedbackAceito` / `Recusado`        | ✅¹ um componente para as duas decisões, sem espera artificial antes de voltar           |
 | 13  | Notificações                                  | `(app)/notificacoes`            | `TFrmNotificacao`                           | ⬜                                                                                       |
 | 14  | Web system — Pedidos de Compra                | `sistema=autcompras`            | `TFrmAutComprasWeb`                         | ⬜                                                                                       |
 | 15  | Web system — Autorização de Cotação           | `sistema=autcotacao`            | `TFrmAutCotacaoWeb`                         | ⬜                                                                                       |
 | 16  | Web system — Requisição de Compra             | `sistema=reqcompras`            | `TFrmReqComprasWeb`                         | ⬜                                                                                       |
 | 17  | Web system — Autorizador Financeiro / Borderô | `sistema=autorizador`           | `TFrmWebSystems`                            | ⬜                                                                                       |
+
+¹ **Bloco C (telas 9–12) fechado na revisão de 04/09/2026**, contra o critério de pronto do
+plano §5. Rotas só compõem, as quatro APIs têm schema Zod, erro é decidido por
+`ApiError.status`, estilo só por `className` com token semântico, `lint` e `typecheck` limpos.
+A revisão corrigiu três desvios: o `if (estado)` que era sempre verdadeiro e escondia o
+conteúdo de seis telas atrás de um `<Screen>` vazio (§4.6), o cast de `LIBERACAO_LIBERADA` no
+lugar de validação, e o erro da decisão não tipado como `ApiError`. As dívidas aceitas estão
+no §9.
+
+**Ressalva:** a verificação foi **por leitura de código e pelos portões estáticos, sem
+execução contra servidor real** — o login segue travado no 🔒 B1 (§7.1), então nenhuma dessas
+telas foi exercitada com payload do Orion. Ao B1 cair, reexecute o caminho fila → análise →
+cliente → decisão antes de confiar no ✅: em particular o `.catch()` de situação
+(`liberacao.schema.ts`), que só se manifesta com payload real, e a devolução da reserva no
+unmount.
 
 As telas 14–17 **não** são quatro rotas: todas são a mesma rota parametrizada
 `(app)/web/[sistema]`, variando só o parâmetro da coluna Rota. O app Delphi tinha três forms
@@ -526,18 +547,19 @@ idênticos para isso (`analise §7.3.21`) — não recrie o arquivo por sistema.
 
 ### Infraestrutura transversal
 
-| Item                                                                     | Status                                                                                                                                               |
-| ------------------------------------------------------------------------ | ---------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Clientes HTTP (central + tenant) com `ApiError`                          | ✅                                                                                                                                                   |
-| Sessão persistida em MMKV (aparelho, usuário, empresa)                   | ✅                                                                                                                                                   |
-| Query client com política de retry por status                            | ✅                                                                                                                                                   |
-| Componentes base (`Screen`, `Button`, `TextField`, `QueryState`)         | ✅                                                                                                                                                   |
-| Chrome da área autenticada (`AppHeader`, `OfflineBanner`, `SearchField`) | ✅ o `OfflineBanner` já lê `session.online` sozinho — não repita o aviso na tela                                                                     |
-| Tokens de tema light/dark                                                | ✅                                                                                                                                                   |
-| Fallback primário → secundário → offline                                 | 🟨 (o teste primário → secundário existe no onboarding e elege `serverUrlActive`; falta refazê-lo em runtime quando o endereço ativo cai — plano F1) |
-| Push notification (FCM / APNs) e roteamento por notificação              | ⬜                                                                                                                                                   |
-| Cache offline de empresas                                                | 🟨 (a lista do usuário já é gravada e relida do MMKV pela tela 6; falta o login offline em si — plano F2)                                            |
-| Testes automatizados                                                     | ⬜ (nenhum runner instalado — §1)                                                                                                                    |
+| Item                                                                     | Status                                                                                                                                                                                                          |
+| ------------------------------------------------------------------------ | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Clientes HTTP (central + tenant) com `ApiError`                          | ✅                                                                                                                                                                                                              |
+| Sessão persistida em MMKV (aparelho, usuário, empresa)                   | ✅                                                                                                                                                                                                              |
+| Query client com política de retry por status                            | ✅                                                                                                                                                                                                              |
+| Componentes base (`Screen`, `Button`, `TextField`, `QueryState`)         | ✅                                                                                                                                                                                                              |
+| Chrome da área autenticada (`AppHeader`, `OfflineBanner`, `SearchField`) | ✅ o `OfflineBanner` já lê `session.online` sozinho — não repita o aviso na tela                                                                                                                                |
+| Tokens de tema light/dark                                                | ✅                                                                                                                                                                                                              |
+| Fallback primário → secundário → offline                                 | 🟨 (o teste primário → secundário existe no onboarding e elege `serverUrlActive`; falta refazê-lo em runtime quando o endereço ativo cai — plano F1)                                                            |
+| Push notification (FCM / APNs) e roteamento por notificação              | ⬜                                                                                                                                                                                                              |
+| Cache offline de empresas                                                | 🟨 (a lista do usuário já é gravada e relida do MMKV pela tela 6; falta o login offline em si — plano F2)                                                                                                       |
+| Relato de erro / observabilidade                                         | ⬜ (nenhum coletor instalado; o canal é o `console.warn` do §5.4 — o primeiro fallback silencioso a virar relato é o de `LIBERACAO_LIBERADA` em `liberacao.schema.ts`, e é o ponto a trocar ao instalar Sentry) |
+| Testes automatizados                                                     | ⬜ (nenhum runner instalado — §1)                                                                                                                                                                               |
 
 ---
 
@@ -557,6 +579,13 @@ Precisam de resposta do time antes de fechar as telas correspondentes.
    para as telas 14–17.
 4. **Sessão na WebView.** O app original passa o JWT no fragmento da URL, onde ele fica no
    histórico e no cache. Definir o novo mecanismo antes de implementar as telas web.
+   **Entra aqui também o contrato de parâmetros do atalho de borderô** (revisão do Bloco C, D7):
+   `analise-liberacao.tsx` já empurra `sequencia` **e o texto livre de resposta do usuário**
+   como parâmetro de URL para `(app)/web/[sistema]` — mesma classe de problema do JWT no
+   fragmento. Decidir os dois juntos, antes de abrir o Bloco D, em vez de herdar `resposta`
+   na URL. Enquanto o contêiner é placeholder, o caminho de volta
+   (`useBorderoRetornoStore.publicar()` → `useRetornoBordero` → `decisaoDoBordero`) existe
+   sem produtor: é a ordem do plano, não código morto.
 5. **Reserva da liberação.** O servidor aceita reservar algo que já está `'1'` com outro
    usuário, e não há TTL: a trava é fictícia (`analise §7.1.2`, `§7.1.4`). O app não corrige
    isso sozinho.
@@ -581,3 +610,17 @@ Confirmado na análise, não reproduza:
 - O **cadeado** antes dos botões Autorizar/Recusar: um toque a mais que não protege nada (`§7.2.16`).
 - As **esperas artificiais** e o **laço infinito de pedido de permissão** (`§7.2.13`, `§7.2.14`).
 - **Senha em texto claro** no armazenamento local (`§7.1.9`).
+
+---
+
+## 9. Dívida técnica anotada
+
+Desvios conhecidos, revisados e **aceitos por ora**: nenhum deles quebra o critério de pronto do
+plano §5 ao ponto de travar um bloco, e todos têm dono claro. Estão aqui para não serem
+redescobertos como novidade — e para não virarem padrão copiado em bloco novo.
+
+| #   | Onde                                                                                                                      | O quê                                                                                                                                                                                                                                                                                                   | Quando pagar                                                                                                     |
+| --- | ------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------- |
+| D4  | `use-analise-credito.ts` · `use-historico-compras.ts`                                                                     | A guarda é `enabled: empresa !== null && cliente !== null`, mas o comentário promete "sem empresa ou sem cliente não roda": **string vazia passa** e viraria `customerdataanalytics//` → 404. Não acontece hoje porque `DadosCliente` recebe `string` não-nulável e a rota pré-valida — o que deixa o ` | null` da assinatura morto.                                                                                       | Ao aparecer um segundo consumidor: ou cai o ` | null`, ou guarda por truthiness. |
+| D5  | `use-decidir-liberacao.ts`                                                                                                | Invalida `liberacoesKeys.all`, que por prefixo cobre também `credito(…)` e `historico(…)`: decidir uma liberação refaz a análise de crédito de todo cliente em cache. É o que a ficha C2 pede literalmente, mas é largo.                                                                                | Ao a fila ganhar mais sub-chaves — criar um prefixo de fila e invalidar só ele.                                  |
+| D6  | `dados-cliente.tsx` · `campos-cliente.ts` · `cliente-titulo-card.tsx` · `liberacao-resumo.tsx` · `use-analise-credito.ts` | Nome de coluna Firebird **em comentário** fora de `schemas/`. Nenhum código depende deles: é o §5.8 do plano (citar a origem da regra) cruzando com o §5.3 (o nome não sai de `schemas/`). A letra do §5.3 está violada, o espírito não.                                                                | Precisa de uma decisão do time, não de um patch. Até lá, não crie **código** que leia coluna fora de `schemas/`. |

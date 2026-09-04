@@ -2,7 +2,7 @@ import { useLocalSearchParams } from 'expo-router';
 
 import { DadosCliente } from '@/features/liberacoes/components/dados-cliente';
 import { useLiberacao } from '@/features/liberacoes/hooks/use-liberacao';
-import { QueryState } from '@/shared/components/ui/query-state';
+import { queryState } from '@/shared/components/ui/query-state';
 import { Screen } from '@/shared/components/ui/screen';
 
 /**
@@ -16,15 +16,13 @@ export default function ClienteScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const { data: liberacao, isLoading, error, refetch } = useLiberacao(id);
 
-  const estado = (
-    <QueryState
-      isLoading={isLoading}
-      error={error}
-      onRetry={refetch}
-      isEmpty={!liberacao}
-      emptyMessage="Esta liberação não está mais na fila."
-    />
-  );
+  const estado = queryState({
+    isLoading,
+    error,
+    onRetry: refetch,
+    isEmpty: !liberacao,
+    emptyMessage: 'Esta liberação não está mais na fila.',
+  });
   if (estado || !liberacao) return <Screen edges={['bottom']}>{estado}</Screen>;
 
   const empresa = liberacao.empresa.codigo;
@@ -35,12 +33,12 @@ export default function ClienteScreen() {
   if (!empresa || !cliente) {
     return (
       <Screen edges={['bottom']}>
-        <QueryState
-          isLoading={false}
-          error={null}
-          isEmpty
-          emptyMessage="Esta liberação não identifica o cliente."
-        />
+        {queryState({
+          isLoading: false,
+          error: null,
+          isEmpty: true,
+          emptyMessage: 'Esta liberação não identifica o cliente.',
+        })}
       </Screen>
     );
   }

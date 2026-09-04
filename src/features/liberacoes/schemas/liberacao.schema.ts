@@ -13,6 +13,47 @@ export const SituacaoLiberacao = {
 
 export type SituacaoLiberacao = (typeof SituacaoLiberacao)[keyof typeof SituacaoLiberacao];
 
+/**
+ * Relata situação que não pertence ao ciclo conhecido.
+ *
+ * O fallback do schema é rede de segurança, não comportamento esperado: tratar
+ * um payload incompleto como "liberação livre" em silêncio esconderia bug do
+ * servidor justamente na tela onde o dinheiro é decidido. Separa os dois casos
+ * porque eles têm donos diferentes — campo ausente é resposta malformada de
+ * `searchpending`; código desconhecido é estado novo do ERP.
+ *
+ * Enquanto o projeto não tem Sentry (nem qualquer coletor — §1), o canal é o
+ * `console.warn` liberado pelo §5.4. Ao instalar um, **este é o único ponto a
+ * trocar**.
+ */
+function reportarSituacaoInesperada(recebido: unknown): void {
+  if (recebido === null || recebido === undefined) {
+    console.warn(
+      '[liberacao] payload sem LIBERACAO_LIBERADA; tratado como situação livre. ' +
+        'Resposta de searchpending provavelmente incompleta — conferir no servidor.',
+    );
+    return;
+  }
+
+  console.warn(
+    `[liberacao] LIBERACAO_LIBERADA fora do ciclo conhecido: ${JSON.stringify(recebido)}; ` +
+      'tratado como situação livre. Se for estado novo do ERP, incluir em SituacaoLiberacao.',
+  );
+}
+
+/**
+ * `LIBERACAO_LIBERADA` validada, não afirmada por cast.
+ *
+ * O `.catch()` existe porque `liberacaoListSchema` é tudo-ou-nada: uma linha
+ * com situação inesperada derrubaria a fila inteira em vez de si mesma. `Livre`
+ * é o destino seguro — a situação real de quem decide é do servidor, e o app
+ * não usa este campo para liberar nada — mas nunca em silêncio.
+ */
+const situacaoLiberacaoSchema = z.enum(Object.values(SituacaoLiberacao)).catch((ctx) => {
+  reportarSituacaoInesperada(ctx.value);
+  return SituacaoLiberacao.Livre;
+});
+
 /** `LIBERACAO_ORIGEM` → rótulo exibido. */
 export const ORIGEM_LABEL: Record<string, string> = {
   P: 'Pedido de Vendas',
@@ -45,7 +86,7 @@ export const liberacaoSchema = z
     LIBERACAO_SOLICITACAO: optionalText,
     LIBERACAO_TIPO: optionalText,
     LIBERACAO_DESCONTO: z.coerce.number().nullish(),
-    LIBERACAO_LIBERADA: z.string(),
+    LIBERACAO_LIBERADA: situacaoLiberacaoSchema,
     LIBERACAO_DATA: optionalText,
     LIBERACAO_HORA: optionalText,
     LIBERACAO_MAQUINA: optionalText,
@@ -71,7 +112,7 @@ export const liberacaoSchema = z
     /** `I` desconto unitário · `G` desconto geral. */
     tipoDesconto: raw.LIBERACAO_TIPO,
     desconto: raw.LIBERACAO_DESCONTO ?? 0,
-    situacao: raw.LIBERACAO_LIBERADA as SituacaoLiberacao,
+    situacao: raw.LIBERACAO_LIBERADA,
     data: raw.LIBERACAO_DATA,
     hora: raw.LIBERACAO_HORA,
     maquina: raw.LIBERACAO_MAQUINA,

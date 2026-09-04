@@ -2,7 +2,7 @@ import { useEffect } from 'react';
 import { Pressable, Text, View } from 'react-native';
 
 import { useBasesDisponiveis } from '@/features/auth/hooks/use-bases-disponiveis';
-import { QueryState } from '@/shared/components/ui/query-state';
+import { queryState } from '@/shared/components/ui/query-state';
 import { cn } from '@/shared/lib/format/cn';
 
 interface SeletorBaseProps {
@@ -27,15 +27,13 @@ export function SeletorBase({ tokenSelecionado, onSelecionar }: SeletorBaseProps
     if (baseUnica && tokenSelecionado !== baseUnica.token) onSelecionar(baseUnica.token);
   }, [baseUnica, tokenSelecionado, onSelecionar]);
 
-  const estado = (
-    <QueryState
-      isLoading={isLoading}
-      error={error}
-      onRetry={refetch}
-      isEmpty={bases?.length === 0}
-      emptyMessage="Nenhuma base cadastrada para este documento no servidor."
-    />
-  );
+  const estado = queryState({
+    isLoading,
+    error,
+    onRetry: refetch,
+    isEmpty: bases?.length === 0,
+    emptyMessage: 'Nenhuma base cadastrada para este documento no servidor.',
+  });
   if (estado) return <View className="min-h-24">{estado}</View>;
   if (baseUnica) return null;
 

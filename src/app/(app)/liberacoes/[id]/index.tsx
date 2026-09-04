@@ -4,7 +4,7 @@ import { useState } from 'react';
 import { AnaliseLiberacao } from '@/features/liberacoes/components/analise-liberacao';
 import { DecisaoFeedback } from '@/features/liberacoes/components/decisao-feedback';
 import { useLiberacao } from '@/features/liberacoes/hooks/use-liberacao';
-import { QueryState } from '@/shared/components/ui/query-state';
+import { queryState } from '@/shared/components/ui/query-state';
 import { Screen } from '@/shared/components/ui/screen';
 
 import type { Decisao } from '@/features/liberacoes/schemas/liberacao.schema';
@@ -32,15 +32,13 @@ export default function LiberacaoDetalheScreen() {
     );
   }
 
-  const estado = (
-    <QueryState
-      isLoading={isLoading}
-      error={error}
-      onRetry={refetch}
-      isEmpty={!liberacao}
-      emptyMessage="Esta liberação não está mais na fila."
-    />
-  );
+  const estado = queryState({
+    isLoading,
+    error,
+    onRetry: refetch,
+    isEmpty: !liberacao,
+    emptyMessage: 'Esta liberação não está mais na fila.',
+  });
   if (estado || !liberacao) return <Screen edges={['bottom']}>{estado}</Screen>;
 
   return (

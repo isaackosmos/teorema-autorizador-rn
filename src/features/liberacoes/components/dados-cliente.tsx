@@ -5,7 +5,7 @@ import { ClienteTituloCard } from '@/features/liberacoes/components/cliente-titu
 import { useAnaliseCredito } from '@/features/liberacoes/hooks/use-analise-credito';
 import { useHistoricoCompras } from '@/features/liberacoes/hooks/use-historico-compras';
 import { camposDaAnalise } from '@/features/liberacoes/lib/campos-cliente';
-import { QueryState } from '@/shared/components/ui/query-state';
+import { queryState } from '@/shared/components/ui/query-state';
 
 interface DadosClienteProps {
   /** `EMPRESA_MOVTO` da liberação — a empresa do movimento, não a licenciada. */
@@ -33,16 +33,14 @@ export function DadosCliente({ empresa, cliente, nome }: DadosClienteProps) {
     void historico.refetch();
   }
 
-  const estado = (
-    <QueryState
-      isLoading={credito.isLoading || historico.isLoading}
-      // Uma mensagem só, a do servidor, como ela veio (docs/analise §7.1.3).
-      error={credito.error ?? historico.error}
-      onRetry={recarregar}
-      isEmpty={campos.length === 0 && titulos.length === 0}
-      emptyMessage="O servidor não retornou análise de crédito nem títulos para este cliente."
-    />
-  );
+  const estado = queryState({
+    isLoading: credito.isLoading || historico.isLoading,
+    // Uma mensagem só, a do servidor, como ela veio (docs/analise §7.1.3).
+    error: credito.error ?? historico.error,
+    onRetry: recarregar,
+    isEmpty: campos.length === 0 && titulos.length === 0,
+    emptyMessage: 'O servidor não retornou análise de crédito nem títulos para este cliente.',
+  });
   if (estado) return estado;
 
   return (

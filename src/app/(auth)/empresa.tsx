@@ -5,7 +5,7 @@ import { EmpresaOpcao } from '@/features/empresa/components/empresa-opcao';
 import { useEmpresasDoUsuario } from '@/features/empresa/hooks/use-empresas-do-usuario';
 import { useEscolherEmpresa } from '@/features/empresa/hooks/use-escolher-empresa';
 import { OfflineBanner } from '@/shared/components/ui/offline-banner';
-import { QueryState } from '@/shared/components/ui/query-state';
+import { queryState } from '@/shared/components/ui/query-state';
 import { Screen } from '@/shared/components/ui/screen';
 
 /**
@@ -27,17 +27,15 @@ export default function EmpresaScreen() {
     if (empresaUnica) escolher(empresaUnica);
   }, [empresaUnica, escolher]);
 
-  const estado = (
-    <QueryState
-      isLoading={isLoading || empresaUnica !== undefined}
-      // Com a lista em cache o erro não toma a tela: dá para escolher a
-      // empresa sem servidor, e o aviso fica no banner de offline (plano F2).
-      error={empresas ? null : error}
-      onRetry={refetch}
-      isEmpty={!empresas || empresas.length === 0}
-      emptyMessage="Nenhuma empresa liberada para este usuário. Procure o administrador do ERP."
-    />
-  );
+  const estado = queryState({
+    isLoading: isLoading || empresaUnica !== undefined,
+    // Com a lista em cache o erro não toma a tela: dá para escolher a
+    // empresa sem servidor, e o aviso fica no banner de offline (plano F2).
+    error: empresas ? null : error,
+    onRetry: refetch,
+    isEmpty: !empresas || empresas.length === 0,
+    emptyMessage: 'Nenhuma empresa liberada para este usuário. Procure o administrador do ERP.',
+  });
   if (estado) return <Screen>{estado}</Screen>;
 
   return (
