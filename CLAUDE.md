@@ -492,15 +492,15 @@ Legenda: ⬜ pendente · 🟨 em andamento · ✅ concluído
 
 ### Onboarding e sessão
 
-| #   | Tela                           | Rota                      | Origem no app Delphi                              | Status                                                                                         |
-| --- | ------------------------------ | ------------------------- | ------------------------------------------------- | ---------------------------------------------------------------------------------------------- |
-| 1   | Splash / roteamento inicial    | `src/app/index.tsx`       | `TFrmLoginBase` (aba Splash)                      | ✅                                                                                             |
-| 2   | Documento da empresa           | `(auth)/documento`        | `TFrmLoginBase` (aba Documento)                   | ✅ CNPJ/CPF validado no schema; grava a empresa licenciada e as três URLs do tenant            |
-| 3   | Configuração de servidor       | `(auth)/configuracao`     | `TFrmLoginBase` (abas Configuração/Bancos)        | ✅ endereços editáveis na tela, ping primário → secundário e escolha da base                   |
-| 4   | Login                          | `(auth)/login`            | `TFrmLoginBase` (aba Login)                       | 🟨 UI, formulário e envio da senha prontos; falta o servidor (§7.1)                            |
-| 5   | Registro do aparelho e licença | `(auth)/configuracao`     | `TFrmLoginBase` (abas Identificação/Licença/Erro) | ✅ registro no central, validade da licença e um estado só de erro de licença                  |
-| 6   | Escolha de empresa             | `(auth)/empresa`          | `TFrmLoginBase` (aba Escolha de empresa)          | ✅ lista em query com cache em MMKV; empresa única entra sozinha e vai para o menu             |
-| 7   | Histórico de usuários          | seletor em `(auth)/login` | `TFrmHistoricoUsuarios`                           | ✅ chips dos últimos logins no formulário; MMKV guarda só o username e a data do último acesso |
+| #   | Tela                           | Rota                      | Origem no app Delphi                              | Status                                                                                                                            |
+| --- | ------------------------------ | ------------------------- | ------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------- |
+| 1   | Splash / roteamento inicial    | `src/app/index.tsx`       | `TFrmLoginBase` (aba Splash)                      | ✅                                                                                                                                |
+| 2   | Documento da empresa           | `(auth)/documento`        | `TFrmLoginBase` (aba Documento)                   | ✅ CNPJ/CPF validado no schema; grava a empresa licenciada e as três URLs do tenant                                               |
+| 3   | Configuração de servidor       | `(auth)/configuracao`     | `TFrmLoginBase` (abas Configuração/Bancos)        | ✅ endereços editáveis na tela, ping primário → secundário e escolha da base                                                      |
+| 4   | Login                          | `(auth)/login`            | `TFrmLoginBase` (aba Login)                       | 🟨 app pronto: senha em texto puro sobre TLS (§7.1); **nunca exercitado contra servidor** — falta o Orion aceitar o contrato novo |
+| 5   | Registro do aparelho e licença | `(auth)/configuracao`     | `TFrmLoginBase` (abas Identificação/Licença/Erro) | ✅ registro no central, validade da licença e um estado só de erro de licença                                                     |
+| 6   | Escolha de empresa             | `(auth)/empresa`          | `TFrmLoginBase` (aba Escolha de empresa)          | ✅ lista em query com cache em MMKV; empresa única entra sozinha e vai para o menu                                                |
+| 7   | Histórico de usuários          | seletor em `(auth)/login` | `TFrmHistoricoUsuarios`                           | ✅ chips dos últimos logins no formulário; MMKV guarda só o username e a data do último acesso                                    |
 
 ### Área autenticada
 
@@ -525,12 +525,25 @@ conteúdo de seis telas atrás de um `<Screen>` vazio (§4.6), o cast de `LIBERA
 lugar de validação, e o erro da decisão não tipado como `ApiError`. As dívidas aceitas estão
 no §9.
 
-**Ressalva:** a verificação foi **por leitura de código e pelos portões estáticos, sem
-execução contra servidor real** — o login segue travado no 🔒 B1 (§7.1), então nenhuma dessas
-telas foi exercitada com payload do Orion. Ao B1 cair, reexecute o caminho fila → análise →
-cliente → decisão antes de confiar no ✅: em particular o `.catch()` de situação
-(`liberacao.schema.ts`), que só se manifesta com payload real, e a devolução da reserva no
-unmount.
+**Ressalva — vale para os Blocos A, B e C, não só para o C:** toda a verificação até aqui foi
+**por leitura de código e pelos portões estáticos (`lint` + `typecheck`), sem uma única execução
+contra servidor real.** O login segue travado no 🔒 B1 (§7.1): o app já manda a senha em texto
+puro, como decidido, mas o `/v1/auth/login` ainda compara `MD5(Decrypt(USUARIO_SENHA))`. Sem
+login não há JWT, e sem JWT nenhuma tela de tenant recebeu payload do Orion — então **nenhum ✅
+deste índice foi confirmado com dado real**, incluindo os do onboarding.
+
+**Ao 🔒 B1 cair, reverifique os três blocos com dado real antes de confiar no ✅** — é a primeira
+coisa a fazer, antes de abrir o Bloco D:
+
+- **Bloco A (telas 1–7)** — documento → configuração → registro → login → empresa de ponta a
+  ponta. O que só aparece com servidor real: a resposta de `companyinformation` que vem
+  **200 com `{}`** e é traduzida para `ApiError` 404 na borda (§4.1), o `TOKEN` → `jwt` do
+  `auth.schema.ts`, o `registerid` omitido no primeiro login, e o fallback primário → secundário.
+- **Bloco B (tela 8)** — cabeçalho com usuário, empresa e logo em cache, e o badge de
+  notificações, que hoje é `skipToken` e nunca buscou nada (§4.4).
+- **Bloco C (telas 9–12)** — o caminho fila → análise → cliente → decisão. Em particular o
+  `.catch()` de situação em `liberacao.schema.ts`, que só se manifesta com payload real, e a
+  devolução da reserva no unmount.
 
 As telas 14–17 **não** são quatro rotas: todas são a mesma rota parametrizada
 `(app)/web/[sistema]`, variando só o parâmetro da coluna Rota. O app Delphi tinha três forms

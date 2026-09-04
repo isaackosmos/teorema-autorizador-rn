@@ -1,9 +1,11 @@
-# Decisão em aberto B1 — hash da senha no login
+# Decisão B1 — hash da senha no login
 
-> **Status:** proposta aguardando decisão conjunta app + backend.
+> **Status:** **decidido do lado do app, pendente no servidor.** A escolha foi a senha em texto
+> puro sobre TLS, com o hash 100% no Orion (opção B da §3.4).
 > **Trava:** `CLAUDE.md §7.1` · `docs/plano-migracao.md` bloqueio 🔒 B1 (tela A4 · `(auth)/login`).
-> **Enquanto não for decidido, o login do app novo não funciona:** `preparePassword()` em
-> `src/features/auth/lib/password.ts` lança de propósito.
+> **O login real ainda não funciona:** `preparePassword()` em `src/features/auth/lib/password.ts`
+> já é o passthrough que a decisão pede, mas o `/v1/auth/login` continua comparando
+> `MD5(Decrypt(USUARIO_SENHA))`. Só o servidor falta — ver §4 e §7.
 
 ---
 
@@ -221,37 +223,33 @@ no lugar do texto (`analise §7.1.3`).
 
 ---
 
-## 5. O que muda neste repositório
+## 5. O que muda neste repositório — já feito
 
-Um arquivo, nos dois cenários. É por isso que o ponto foi isolado ali (`plano-migracao.md §2`,
-regra 4).
-
-**Se a decisão for a Opção B (recomendada):**
+Um arquivo, como previsto: o ponto foi isolado ali de propósito (`plano-migracao.md §2`, regra 4).
+`src/features/auth/lib/password.ts` **já implementa a opção B**:
 
 ```ts
-// src/features/auth/lib/password.ts
-/**
- * A senha vai em texto puro sobre TLS; o hash é responsabilidade do Orion
- * (Argon2id/bcrypt). Ver docs/decisao-hash-senha.md.
- */
 export function preparePassword(password: string): string {
   return password;
 }
 ```
 
-Nesse ponto a função vira supérflua e pode ser removida, com `auth.api.ts` mandando
-`payload.password` direto. Manter o arquivo só se a intenção for documentar a decisão no código.
+A função foi **mantida** em vez de `auth.api.ts` mandar `payload.password` direto, por dois
+motivos: deixa a decisão explícita no código, junto do porquê de não hashear no cliente, e dá um
+ponto único de mudança se o contrato do servidor mudar de novo.
 
-**Se a decisão for manter MD5 no curto prazo**, três coisas precisam ficar registradas:
+Duas regras que já valiam continuam valendo, e não dependem da decisão: a senha está fora do MMKV
+(`session.store.ts:69` usa `partialize` para gravar só `device`, `user` e `company`) e o campo de
+senha nunca é pré-preenchido (§7.1.9).
+
+**Se o backend recusar a opção B e exigir MD5 no curto prazo**, três coisas precisam entrar na
+estimativa antes de tocar no arquivo:
 
 - **Dependência nova.** `expo-crypto` não expõe MD5 em todas as plataformas; provavelmente será um
   pacote JS puro (`js-md5`). **Verificar antes de estimar.**
 - **Caixa do hex é indiferente** — o servidor faz `UpperCase()` no que recebe.
 - **Restringir a senha a ASCII** ou resolver o encoding antes (R10), sob pena de o login falhar em
   uma plataforma e funcionar em outra para a mesma senha.
-
-E, mesmo nesse cenário, **nada muda em duas regras que já valem**: a senha continua fora do MMKV
-(`session.store.ts` já usa `partialize`) e o campo de senha nunca é pré-preenchido (§7.1.9).
 
 ---
 
@@ -273,18 +271,22 @@ para `JWT` no servidor — mas aí é o schema que acompanha, não o contrário.
 
 ---
 
-## 7. Decisão a tomar
+## 7. Decisão a tomar — o que falta é do backend
 
-Para o time de backend, três perguntas objetivas:
+O app já fez a sua parte. Para o time de backend, três perguntas objetivas:
 
-1. **Aceitamos senha em texto puro sobre TLS, com Argon2id/bcrypt no servidor?** (Recomendado. Se
-   sim, o app está pronto: uma linha.)
+1. **Confirmam senha em texto puro sobre TLS, com Argon2id/bcrypt no servidor?** O app já está
+   assim. Um "não" aqui é o único cenário que reabre trabalho no cliente (§5).
 2. **Argon2id ou bcrypt?** Bcrypt já está vendorizado no Orion e não custa nada começar; Argon2id é
-   a recomendação atual da OWASP.
-3. **Todas as URLs de tenant em produção já são `https`?** Se não, isso vira o primeiro item — e o
-   app passa a rejeitar `http` na configuração de servidor.
+   a recomendação atual da OWASP. O app não vê diferença.
+3. **Todas as URLs de tenant em produção já são `https`?** Hoje o app **aceita as duas**:
+   `conexao.schema.ts:23` valida com `protocol: /^https?$/`. Se a resposta for "não são todas",
+   isso vira o primeiro item da §4 e o app passa a rejeitar `http` na tela de configuração —
+   mudança de uma linha nesse schema, mas que derruba tenant sem TLS, então precisa da auditoria
+   do parque antes.
 
-Fechadas as três, o bloqueio 🔒 B1 cai e a tela A4 (`(auth)/login`) fecha.
+Fechadas as três — e subido o novo contrato do `/v1/auth/login` —, o bloqueio 🔒 B1 cai e a tela
+A4 (`(auth)/login`) fecha.
 
 ---
 
