@@ -8,6 +8,13 @@
 > decide a tela 13 (E2), que depende de o servidor ter endpoint de notificações.
 > **Verificação:** as citações de API foram conferidas contra a documentação do Expo em 04/09/2026
 > (links no §11); **nada foi executado em aparelho** — o app não tem push instalado.
+>
+> **Conferência contra o que está instalado (08/09/2026).** O `expo-notifications` **não está no
+> `package.json` nem no `node_modules`**: não há versão, typings nem schema de config plugin local
+> para conferir, então §4, §5 (props do plugin), §6.1 e §6.4 seguem verificados **só contra a
+> documentação**. O que deu para apurar localmente está em §4 (a versão que o SDK fixa), §5.1, §6.4
+> e na armadilha 8 do §7. Instalar o pacote é a única forma de fechar essa lacuna — e é o próprio
+> 🔒 B7.
 
 ---
 
@@ -154,6 +161,13 @@ o Orion passa a depender de acesso à internet para `exp.host`; e o token muda d
 
 ## 4. Biblioteca: `expo-notifications`
 
+**Versão: `~57.0.15`.** É o que `node_modules/expo/bundledNativeModules.json` fixa para este SDK
+(`expo` 57.0.18, RN 0.86.3) e o que `npx expo install expo-notifications` vai instalar. O
+versionamento é **unificado**: o pacote acompanha o número do SDK. Material de fora que fale em
+`expo-notifications@0.3x` é de outra era de numeração — não dá para mapear versão de tutorial para
+esta linha, o que é mais um motivo para conferir a API contra os typings instalados antes de
+escrever a feature.
+
 Uma só, e ela cobre tudo que a ficha E1 precisa:
 
 | Necessidade E1                     | API                                                                             |
@@ -166,12 +180,17 @@ Uma só, e ela cobre tudo que a ficha E1 precisa:
 | Toque com app fechado (cold start) | `useLastNotificationResponse()` / `getLastNotificationResponseAsync()`          |
 | Badge                              | `setBadgeCountAsync()`                                                          |
 
-**Cuidado de API já verificado:** `shouldShowAlert` está **deprecado** no `NotificationBehavior` —
-use `shouldShowBanner` + `shouldShowList`. E as versões síncronas
-`getLastNotificationResponse()` / `clearLastNotificationResponse()` foram substituídas pelas
-`…Async`. Tutorial antigo copiado sem conferir entra com as duas coisas erradas.
+**Cuidado de API — conferido na documentação, não nos typings:** `shouldShowAlert` está
+**deprecado** no `NotificationBehavior` — use `shouldShowBanner` + `shouldShowList`. E as versões
+síncronas `getLastNotificationResponse()` / `clearLastNotificationResponse()` foram substituídas
+pelas `…Async`. Tutorial antigo copiado sem conferir entra com as duas coisas erradas.
 
-`expo-linking` (já instalado) resolve o §6.2. Nenhuma outra dependência é necessária na opção 1.
+Como o pacote não está instalado, **nada disso foi confirmado contra a 57.0.15**: a deprecação
+pode já ter virado remoção, e a assinatura pode ter mudado. Primeira tarefa da E1, antes de
+escrever hook: instalar e reler a tabela acima contra `node_modules/expo-notifications`.
+
+`expo-linking` (já instalado, 57.0.8) resolve o §6.2 — `openSettings(): Promise<void>` conferido em
+`build/Linking.d.ts`. É a única dependência da opção 1 já presente; ver §7.8 sobre o `expo-device`.
 
 ---
 
@@ -187,12 +206,18 @@ use `shouldShowBanner` + `shouldShowList`. E as versões síncronas
 | `app.json`             | `expo-notifications` em `plugins`, com ícone, cor e `defaultChannel`                                                    |
 | Código                 | `setNotificationChannelAsync()` **antes** de pedir o token (ver armadilha §7.1)                                         |
 | Orion (envio)          | service-account JSON do FCM V1 → OAuth 2.0 → `POST /v1/projects/<projeto>/messages:send`                                |
-| `.gitignore`           | a service-account JSON do envio **nunca** entra no repo — ela é do servidor, não do app                                 |
+| `.gitignore`           | a service-account JSON do envio **nunca** entra no repo — ela é do servidor, não do app (ver nota)                      |
 | Google Cloud           | se a API key do `google-services.json` tiver restrição, habilitar _FCM Registration API_ e _Firebase Installations API_ |
 | Play Console           | usar o **SHA-1 da chave de assinatura de release**, não a de upload                                                     |
 
 Permissão: `POST_NOTIFICATIONS` só existe no **Android 13+ (API 33)**; abaixo disso a notificação é
 concedida por padrão — mas o **canal continua obrigatório** desde o Android 8.
+
+**Nota sobre a service-account (conferido em 08/09/2026):** hoje **não há regra** que a barre. O
+`.gitignore` cobre `*.p8`, `*.p12`, `*.jks`, `*.key` e `*.mobileprovision` — nada pega um `.json` de
+credencial, e `google-services.json` (que **deve** ser commitado) impede um `*.json` genérico. O
+risco é baixo, porque a chave de envio é artefato de servidor e não tem motivo para passar por este
+repo, mas o conserto é uma linha e cabe na mesma entrega.
 
 ### 5.2 iOS (APNs)
 
@@ -293,6 +318,21 @@ E o "recarrega a fila se estiver instanciada" vira **invalidação de cache**: a
 não faz nada quando não há nada montado — sem o app precisar saber que tela existe. Payload que não
 casa com o schema é descartado com `console.warn` (`CLAUDE.md §5.4`); não navega para lugar nenhum.
 
+**Mas essa invalidação, como está escrita, paga a dívida D5 na hora errada.** `liberacoesKeys.all`
+é prefixo de `credito(empresa, cliente)` e `historico(empresa, cliente)` — conferido em
+`liberacoes.keys.ts`. Hoje o D5 (`CLAUDE.md §9`) é aceitável porque quem dispara é o usuário, ao
+decidir. Com push, quem dispara é o **servidor**, num evento que o usuário não controla: cada
+notificação recebida refaz a análise de crédito de todo cliente em cache. **A E1 é o momento de
+criar o prefixo de fila** que o D5 já previa (`liberacoesKeys.fila`, com `pendentes` abaixo dele) e
+invalidar só ele — senão a dívida deixa de ser dívida e vira defeito.
+
+**O `Href` do exemplo não é a rede de segurança que parece — ainda.** O `typedRoutes` está ligado
+no `app.json`, mas os tipos gerados vivem em `.expo/types/`, que é **gitignorado e não existe num
+checkout limpo**. Conferido em 08/09/2026: uma função tipada como `Href` devolvendo
+`'/(app)/rota-que-nao-existe'` **passa no `tsc --noEmit`**. Ou seja, enquanto os tipos não forem
+gerados (rodando o dev server ou o `prebuild`), o `typecheck` valida a _forma_ do objeto de rota,
+não a rota. Vale para o roteamento de push e para qualquer `router.push` do app.
+
 ### 6.5 Sem memo de debug (§7.3.27)
 
 `MemoDebugPush` era um `TMemo` de depuração no form base **de produção**. O canal aqui é
@@ -320,6 +360,12 @@ casa com o schema é descartado com `console.warn` (`CLAUDE.md §5.4`); não nav
    ("push ok") esconde qual das três aconteceu.
 7. **Push não substitui a fila.** Notificação é aviso; a verdade é o `searchpending`. Nada de
    decidir liberação a partir do conteúdo da notificação.
+8. **Emulador e simulador não têm token.** `getDevicePushTokenAsync()` só funciona em aparelho
+   físico — no emulador Android e no simulador iOS ele falha, e não é falha de código. O guarda
+   usual é `expo-device` (`~57.0.1` na lista do SDK), que **não está instalado**: se entrar, é uma
+   segunda dependência, e o §8 precisa da linha. A alternativa é tratar a falha como qualquer outra
+   (armadilha 5) e conviver com o erro no ambiente de desenvolvimento — decida antes, ou alguém vai
+   perder uma tarde achando que quebrou o registro.
 
 ---
 
@@ -327,7 +373,8 @@ casa com o schema é descartado com `console.warn` (`CLAUDE.md §5.4`); não nav
 
 | Arquivo                                                         | Mudança                                                                                                                            |
 | --------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------- |
-| `package.json`                                                  | `expo-notifications` (🔒 B7)                                                                                                       |
+| `package.json`                                                  | `expo-notifications@~57.0.15` — versão fixada pelo SDK 57 (§4) (🔒 B7)                                                             |
+| `package.json`                                                  | `expo-device@~57.0.1` **se** o guarda de emulador da armadilha 8 entrar                                                            |
 | `app.json`                                                      | `plugins`: `expo-notifications` (ícone, cor, canal); `android.googleServicesFile`; `ios` background mode se houver push silencioso |
 | `google-services.json`                                          | novo, na raiz, commitado                                                                                                           |
 | `src/features/push/lib/permissao-notificacao.ts`                | novo: `garantirPermissao()` do §6.1                                                                                                |
@@ -338,7 +385,9 @@ casa com o schema é descartado com `console.warn` (`CLAUDE.md §5.4`); não nav
 | `src/features/push/hooks/use-roteamento-push.ts`                | novo: listener + cold start + invalidação de cache                                                                                 |
 | `src/app/_layout.tsx`                                           | `setNotificationHandler` + os dois hooks acima — só composição                                                                     |
 | `src/features/notificacoes/hooks/use-notificacoes-nao-lidas.ts` | sai o `skipToken` quando E2 tiver endpoint; o badge é o mesmo cache                                                                |
-| `CLAUDE.md §6` · `§7.7`                                         | linha de push da infraestrutura transversal e decisão registrada                                                                   |
+| `src/features/liberacoes/api/liberacoes.keys.ts`                | prefixo de fila para a invalidação do §6.4 não derrubar `credito`/`historico` — paga o D5                                          |
+| `.gitignore`                                                    | regra para a service-account JSON do FCM (§5.1)                                                                                    |
+| `CLAUDE.md §6` · `§7.7` · `§9`                                  | linha de push da infraestrutura transversal, decisão registrada, D5 baixado da dívida                                              |
 
 `features/push/` é feature nova e **não** importa de `features/liberacoes/` (`CLAUDE.md §2`): o
 roteamento devolve um `Href` e a invalidação usa a query key, que é o contrato público da fila.
@@ -385,6 +434,11 @@ de notificações. A ordem do plano permite, e o `CLAUDE.md §6` deve refletir i
 - `docs/plano-migracao.md` — ficha E1, ficha E2 e §6 (🔒 B7).
 - `CLAUDE.md` §4.4 (badge com `skipToken`), §4.8 (entrada não confiável), §5.4 (`console.warn`),
   §5.10 (sem espera artificial), §7.7, §7.8 (bundle id compartilhado).
+- Conferido no próprio repositório em 08/09/2026 (é o que dá para reproduzir sem rede):
+  `node_modules/expo/bundledNativeModules.json` (versão de `expo-notifications` e `expo-device` para
+  este SDK), `node_modules/expo-linking/build/Linking.d.ts` (`openSettings`),
+  `src/features/liberacoes/api/liberacoes.keys.ts` (prefixo do D5), `app.json` (plugins e
+  identificadores), `.gitignore` (credenciais) e um `tsc --noEmit` descartável para o `Href` do §6.4.
 - Expo, consultado em 04/09/2026:
   - [`expo-notifications`](https://docs.expo.dev/versions/latest/sdk/notifications/) — API, deprecação
     de `shouldShowAlert`, canal antes do token no Android 13, `enableBackgroundRemoteNotifications`.
