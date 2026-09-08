@@ -1,20 +1,23 @@
 # Decisão B7 — caminho de push (FCM no Android, APNs no iOS)
 
-> **Status:** **opções levantadas; decisão do time pendente.** Nada implementado — não há
-> dependência de push no `package.json`, nem plugin no `app.json`.
+> **Status:** **opções levantadas; decisão do time pendente.** Nenhum código de feature escrito e
+> nada ligado no `app.json`; as duas dependências da opção 1 já estão instaladas (ver abaixo).
 > **Trava:** `CLAUDE.md §7.7` · `docs/plano-migracao.md` bloqueio 🔒 B7 (Bloco E, ficha E1 + tela 13).
 > **Escopo:** decide **quem entrega o push** e **qual biblioteca** o app usa, lista a configuração
 > exigida em cada plataforma e mostra como as quatro correções da ficha E1 se implementam. Não
 > decide a tela 13 (E2), que depende de o servidor ter endpoint de notificações.
 > **Verificação:** as citações de API foram conferidas contra a documentação do Expo em 04/09/2026
-> (links no §11); **nada foi executado em aparelho** — o app não tem push instalado.
+> (links no §12) e **reconferidas contra os typings instalados em 08/09/2026** (§4, §5, §6.1, §6.4);
+> **nada foi executado em aparelho** — não há build nativo nem token obtido.
 >
-> **Conferência contra o que está instalado (08/09/2026).** O `expo-notifications` **não está no
-> `package.json` nem no `node_modules`**: não há versão, typings nem schema de config plugin local
-> para conferir, então §4, §5 (props do plugin), §6.1 e §6.4 seguem verificados **só contra a
-> documentação**. O que deu para apurar localmente está em §4 (a versão que o SDK fixa), §5.1, §6.4
-> e na armadilha 8 do §7. Instalar o pacote é a única forma de fechar essa lacuna — e é o próprio
-> 🔒 B7.
+> **Dependências instaladas (08/09/2026).** `expo-notifications@57.0.17` e `expo-device@57.0.1`
+> estão no `package.json` e no `node_modules`, instalados por `npx expo install` — **só as
+> dependências, nenhum código de feature.** Isso **não** decide o B7: instalar a biblioteca não
+> escolhe quem entrega o push, e nada foi ligado (o `app.json` segue com `plugins: ["expo-router"]`
+> e sem `googleServicesFile`). O que a instalação fecha é a lacuna de verificação — §4, §5 (props
+> do plugin), §6.1 e §6.4 agora estão conferidos contra `node_modules`, não contra tutorial. **A
+> reconferência corrigiu uma citação invertida no §4** (ver §4.1); os cinco achados abertos
+> estão consolidados no §8.
 
 ---
 
@@ -62,7 +65,8 @@ E os quatro defeitos que a ficha E1 manda não repetir:
 | `src/shared/lib/http/client.ts`                                 | `centralApi` pronto — é dele que sai o `tokenpush`                                 |
 | `device.registerId` em `session.types.ts`                       | **pré-requisito do token**: sem registro do aparelho não há o que enviar           |
 | `expo-linking` no `package.json`                                | já instalado — é o que abre as Configurações do sistema (§6.2)                     |
-| `package.json`                                                  | **nenhuma** dependência de push                                                    |
+| `expo-notifications` no `package.json`                          | **instalado em 08/09/2026** (`57.0.17`), sem nenhum import no `src/`               |
+| `expo-device` no `package.json`                                 | **instalado em 08/09/2026** (`57.0.1`) — é o guarda de emulador do §7.8            |
 | `app.json`                                                      | `plugins: ["expo-router"]` só; sem `googleServicesFile`, sem plugin de notificação |
 
 Duas consequências de ordem que valem registrar: o `tokenpush` exige `register_id`, então a captura
@@ -104,7 +108,7 @@ A documentação do Expo é explícita de que isso é suportado e não obriga a 
 - O Orion precisa **descobrir a plataforma** para escolher o caminho. Hoje o `tokenpush` recebe
   `{register_id, push_token}` e nada diz se aquilo é FCM ou APNs — dá para inferir pelo registro do
   aparelho, mas é frágil. **Mandar a plataforma explicitamente é a mudança mínima que eu pediria**
-  (§9, pergunta 2).
+  (§10, pergunta 2).
 - A migração FCM legado → **FCM V1** (OAuth com service account) é obrigatória hoje; se o Orion
   ainda usa a API legada de servidor, isso é trabalho dele independentemente desta decisão.
 
@@ -161,36 +165,66 @@ o Orion passa a depender de acesso à internet para `exp.host`; e o token muda d
 
 ## 4. Biblioteca: `expo-notifications`
 
-**Versão: `~57.0.15`.** É o que `node_modules/expo/bundledNativeModules.json` fixa para este SDK
-(`expo` 57.0.18, RN 0.86.3) e o que `npx expo install expo-notifications` vai instalar. O
-versionamento é **unificado**: o pacote acompanha o número do SDK. Material de fora que fale em
-`expo-notifications@0.3x` é de outra era de numeração — não dá para mapear versão de tutorial para
-esta linha, o que é mais um motivo para conferir a API contra os typings instalados antes de
-escrever a feature.
+**Versão instalada: `57.0.17`**, gravada como `~57.0.17` no `package.json` por
+`npx expo install expo-notifications expo-device`. O `bundledNativeModules.json` deste SDK fixa
+`~57.0.15`; o instalador resolveu o patch mais novo **dentro do mesmo range `~57.0.x`** — é o til
+fazendo o que promete, não divergência de SDK. O `expo-device` ficou em `57.0.1`, exatamente o que a
+lista do SDK pede. O versionamento é **unificado**: o pacote acompanha o número do SDK, e material de
+fora que fale em `expo-notifications@0.3x` é de outra era de numeração — não dá para mapear versão
+de tutorial para esta linha.
 
-Uma só, e ela cobre tudo que a ficha E1 precisa:
+Uma biblioteca só, e ela cobre tudo que a ficha E1 precisa. **A tabela abaixo foi reconferida contra
+`node_modules/expo-notifications/build/*.d.ts` da 57.0.17 em 08/09/2026** — não é mais leitura de
+documentação:
 
-| Necessidade E1                     | API                                                                             |
-| ---------------------------------- | ------------------------------------------------------------------------------- |
-| Token nativo (FCM/APNs)            | `getDevicePushTokenAsync()`                                                     |
-| Permissão sem laço                 | `getPermissionsAsync()` / `requestPermissionsAsync()` → `status`, `canAskAgain` |
-| Comportamento em foreground        | `setNotificationHandler({ shouldShowBanner, shouldShowList, … })`               |
-| Canal Android (obrigatório 8.0+)   | `setNotificationChannelAsync()`                                                 |
-| Toque com app aberto               | `addNotificationResponseReceivedListener()`                                     |
-| Toque com app fechado (cold start) | `useLastNotificationResponse()` / `getLastNotificationResponseAsync()`          |
-| Badge                              | `setBadgeCountAsync()`                                                          |
+| Necessidade E1                     | Assinatura real nos typings                                                                  | Arquivo                            |
+| ---------------------------------- | -------------------------------------------------------------------------------------------- | ---------------------------------- |
+| Token nativo (FCM/APNs)            | `getDevicePushTokenAsync(): Promise<DevicePushToken>`                                        | `getDevicePushTokenAsync.d.ts`     |
+| Permissão sem laço                 | `getPermissionsAsync()` / `requestPermissionsAsync(permissions?)` → `granted`, `canAskAgain` | `NotificationPermissions.d.ts`     |
+| Comportamento em foreground        | `setNotificationHandler(handler: NotificationHandler \| null): void`                         | `NotificationsHandler.d.ts`        |
+| Canal Android (obrigatório 8.0+)   | `setNotificationChannelAsync(id, channel): Promise<NotificationChannel \| null>`             | `setNotificationChannelAsync.d.ts` |
+| Toque com app aberto               | `addNotificationResponseReceivedListener(l): EventSubscription`                              | `NotificationsEmitter.d.ts`        |
+| Toque com app fechado (cold start) | `useLastNotificationResponse(): MaybeNotificationResponse`                                   | `useLastNotificationResponse.d.ts` |
+| Badge                              | `setBadgeCountAsync(n, options?): Promise<boolean>`                                          | `setBadgeCountAsync.d.ts`          |
 
-**Cuidado de API — conferido na documentação, não nos typings:** `shouldShowAlert` está
-**deprecado** no `NotificationBehavior` — use `shouldShowBanner` + `shouldShowList`. E as versões
-síncronas `getLastNotificationResponse()` / `clearLastNotificationResponse()` foram substituídas
-pelas `…Async`. Tutorial antigo copiado sem conferir entra com as duas coisas erradas.
+### 4.1 O que a reconferência corrigiu e o que ela acrescentou
 
-Como o pacote não está instalado, **nada disso foi confirmado contra a 57.0.15**: a deprecação
-pode já ter virado remoção, e a assinatura pode ter mudado. Primeira tarefa da E1, antes de
-escrever hook: instalar e reler a tabela acima contra `node_modules/expo-notifications`.
+**Uma citação estava invertida.** A versão anterior deste documento dizia que "as versões síncronas
+`getLastNotificationResponse()` / `clearLastNotificationResponse()` foram substituídas pelas
+`…Async`". **É o contrário.** Em `NotificationsEmitter.d.ts` da 57.0.17, quem carrega `@deprecated`
+é o par **assíncrono**:
 
-`expo-linking` (já instalado, 57.0.8) resolve o §6.2 — `openSettings(): Promise<void>` conferido em
-`build/Linking.d.ts`. É a única dependência da opção 1 já presente; ver §7.8 sobre o `expo-device`.
+| Função                                 | Estado real na 57.0.17                                             |
+| -------------------------------------- | ------------------------------------------------------------------ |
+| `getLastNotificationResponseAsync()`   | marcada `@deprecated`: "Use getLastNotificationResponse instead"   |
+| `clearLastNotificationResponseAsync()` | marcada `@deprecated`: "Use clearLastNotificationResponse instead" |
+| `getLastNotificationResponse()`        | **substituta**, síncrona → `NotificationResponse \| null`          |
+| `clearLastNotificationResponse()`      | **substituta**, síncrona → `void`                                  |
+
+As duas síncronas saem pelo `export * from './NotificationsEmitter'` do `index.d.ts`: não aparecem
+na lista de exports nomeados, mas são públicas.
+
+**`shouldShowAlert`: deprecação confirmada — e ela é mais do que trocar o nome.** Em
+`Notifications.types.d.ts`, o `NotificationBehavior` marca `shouldShowAlert?: boolean` como
+`@deprecated instead, specify shouldShowBanner and / or shouldShowList`, mas `shouldShowBanner`,
+`shouldShowList`, `shouldPlaySound` e `shouldSetBadge` são **obrigatórios**. Um handler copiado de
+tutorial antigo não "só avisa": ele **não compila** enquanto não declarar os quatro.
+
+Três coisas que só apareceram com os typings na mão:
+
+- **`useLastNotificationResponse()` devolve `MaybeNotificationResponse`** — `undefined` enquanto
+  ainda não se sabe, `null` quando não houve resposta, e o objeto quando houve. Tratar `undefined`
+  como "não houve" é decidir antes de saber; o cold start do §6.4 depende dessa distinção.
+- **`setBadgeCountAsync` devolve `Promise<boolean>`**, não `void`: resolve `false` em launcher
+  Android sem suporte a badge e, no iOS, sem `allowBadge` concedido. Não é fire-and-forget.
+- **`DevicePushToken` é `{ type: 'ios' | 'android'; data: string }`** (`Tokens.types.d.ts`) — **a
+  plataforma já vem junto com o token.** Isso torna a pergunta 2 do §10 (mandar a plataforma no
+  `tokenpush`) barata do lado do app: não há nada a inferir, é repassar o `type`.
+
+`expo-linking` (57.0.8) resolve o §6.2 — `openSettings(): Promise<void>` conferido em
+`build/Linking.d.ts`. `expo-device` (57.0.1) resolve a armadilha §7.8 — `isDevice` é uma
+**constante `boolean` síncrona** (`build/Device.d.ts`), não uma promessa: o guarda é um `if`, sem
+`await`.
 
 ---
 
@@ -203,7 +237,7 @@ escrever hook: instalar e reler a tabela acima contra `node_modules/expo-notific
 | Firebase Console       | projeto + app Android com o package **exatamente** `br.inf.teorema.autorizador4`                                        |
 | `google-services.json` | baixado do console, na raiz do projeto. Pode ser **commitado** (só identificadores públicos)                            |
 | `app.json`             | `expo.android.googleServicesFile: "./google-services.json"` — **obrigatório** para registrar no FCM                     |
-| `app.json`             | `expo-notifications` em `plugins`, com ícone, cor e `defaultChannel`                                                    |
+| `app.json`             | `expo-notifications` em `plugins`, com `icon`, `color` e `defaultChannel` (nomes conferidos, ver abaixo)                |
 | Código                 | `setNotificationChannelAsync()` **antes** de pedir o token (ver armadilha §7.1)                                         |
 | Orion (envio)          | service-account JSON do FCM V1 → OAuth 2.0 → `POST /v1/projects/<projeto>/messages:send`                                |
 | `.gitignore`           | a service-account JSON do envio **nunca** entra no repo — ela é do servidor, não do app (ver nota)                      |
@@ -213,7 +247,14 @@ escrever hook: instalar e reler a tabela acima contra `node_modules/expo-notific
 Permissão: `POST_NOTIFICATIONS` só existe no **Android 13+ (API 33)**; abaixo disso a notificação é
 concedida por padrão — mas o **canal continua obrigatório** desde o Android 8.
 
-**Nota sobre a service-account (conferido em 08/09/2026):** hoje **não há regra** que a barre. O
+**Props do plugin, conferidas no schema instalado (08/09/2026).**
+`node_modules/expo-notifications/plugin/build/withNotifications.d.ts` declara exatamente
+`icon?`, `color?` (default `'#ffffff'`), `defaultChannel?` e `sounds?: string[]` no lado Android —
+os três primeiros são os que a linha acima usa. Não existe prop de canal além do `defaultChannel`:
+qualquer outro canal é criado em runtime por `setNotificationChannelAsync()`.
+
+**Nota sobre a service-account (achado 4 do §8 — ainda não consertado):** hoje **não há regra**
+que a barre. O
 `.gitignore` cobre `*.p8`, `*.p12`, `*.jks`, `*.key` e `*.mobileprovision` — nada pega um `.json` de
 credencial, e `google-services.json` (que **deve** ser commitado) impede um `*.json` genérico. O
 risco é baixo, porque a chave de envio é artefato de servidor e não tem motivo para passar por este
@@ -226,10 +267,18 @@ repo, mas o conserto é uma linha e cabe na mesma entrega.
 | Apple Developer | capability **Push Notifications** no App ID `br.inf.teorema.autorizador4`                                                                                           |
 | Apple Developer | chave **APNs `.p8`** + _Key ID_ + _Team ID_ — é o que o Orion usa para assinar o JWT de envio                                                                       |
 | `app.json`      | `expo-notifications` em `plugins`; `enableBackgroundRemoteNotifications: true` **se** houver push silencioso (adiciona `remote-notification` a `UIBackgroundModes`) |
-| Entitlement     | o plugin marca `aps-environment` como `development`; o Xcode promove para produção no build de release                                                              |
+| Entitlement     | o plugin escreve `aps-environment` com o valor da prop `mode` (default `'development'`), e **só se a chave ainda não existir**                                      |
 | Orion (envio)   | HTTP/2 para `api.sandbox.push.apple.com` (dev) **ou** `api.push.apple.com` (produção); tópico = bundle id                                                           |
 
 Não há string de permissão (`Info.plist`) a preencher para notificação.
+
+**Conferido no plugin instalado (08/09/2026):** `withNotificationsIOS.js` faz
+`config.modResults['aps-environment'] = mode` — com `mode = 'development'` como default — **apenas
+quando a chave ainda não está preenchida**, e `enableBackgroundRemoteNotifications: true` empurra
+`'remote-notification'` para `UIBackgroundModes`. Ou seja: a promoção para produção é
+`mode: 'production'` no `app.json` (ou um entitlement já escrito), **não** algo que o build de
+release faça sozinho — a versão anterior deste documento dizia que o Xcode promovia, e não é o que
+o plugin faz.
 
 **Permissão no iOS é uma bala só:** o sistema permite **um** prompt. Depois de um "Não permitir",
 `canAskAgain` fica `false` para sempre e o único caminho é Configurações. Ou seja, o ramo
@@ -265,6 +314,16 @@ export async function garantirPermissao(): Promise<EstadoPermissao> {
 
 `'negada'` é estado terminal **desta** execução: o app segue funcionando com um aviso dispensável,
 como a ficha E1 pede. Nada de modal que volta.
+
+**Conferido nos typings (08/09/2026):** `NotificationPermissionsStatus` estende o
+`PermissionResponse` do `expo`, então `granted` e `canAskAgain` existem como a função acima usa
+(`NotificationPermissions.types.d.ts`). O bloco `ios?` traz `status: IosAuthorizationStatus`, um
+`enum` real com `NOT_DETERMINED | DENIED | AUTHORIZED | PROVISIONAL | EPHEMERAL` — o §5.2 estava
+certo. Uma consequência que o exemplo da própria documentação do Expo explicita: com autorização
+**provisória** o `granted` vem `false`, e quem quiser aceitar provisional precisa testar
+`ios?.status === IosAuthorizationStatus.PROVISIONAL` à parte. Para o autorizador, tratar provisional
+como "não concedida" é o comportamento correto — notificação de decisão financeira não deve chegar
+silenciosa —, mas é escolha, não acaso.
 
 ### 6.2 `negada-definitivamente` → Configurações do sistema
 
@@ -326,12 +385,36 @@ notificação recebida refaz a análise de crédito de todo cliente em cache. **
 criar o prefixo de fila** que o D5 já previa (`liberacoesKeys.fila`, com `pendentes` abaixo dele) e
 invalidar só ele — senão a dívida deixa de ser dívida e vira defeito.
 
-**O `Href` do exemplo não é a rede de segurança que parece — ainda.** O `typedRoutes` está ligado
-no `app.json`, mas os tipos gerados vivem em `.expo/types/`, que é **gitignorado e não existe num
-checkout limpo**. Conferido em 08/09/2026: uma função tipada como `Href` devolvendo
-`'/(app)/rota-que-nao-existe'` **passa no `tsc --noEmit`**. Ou seja, enquanto os tipos não forem
-gerados (rodando o dev server ou o `prebuild`), o `typecheck` valida a _forma_ do objeto de rota,
-não a rota. Vale para o roteamento de push e para qualquer `router.push` do app.
+**O `Href` do exemplo é rede de segurança só depois que os tipos existem — e eles não vêm no
+checkout.** O `typedRoutes` está ligado no `app.json`, mas os tipos gerados vivem em
+`.expo/types/router.d.ts`, que é **gitignorado**. Conferido em 08/09/2026 nas duas pontas:
+
+| Estado do repositório             | `Href` devolvendo `'/(app)/rota-que-nao-existe'` |
+| --------------------------------- | ------------------------------------------------ |
+| checkout limpo, sem `.expo/types` | **passa** no `npm run typecheck`                 |
+| depois de um `npx expo start`     | **falha** com `TS2322`                           |
+
+O teste foi um arquivo descartável em `src/` com três funções tipadas como `Href`. Subir o dev
+server (`npx expo start --dev-client`) gerou `.expo/types/router.d.ts` com a união literal das rotas
+reais (`/(app)/menu`, `/(app)/liberacoes/[id]`, `/(app)/web/[sistema]`, …), e a partir daí o
+`tsc --noEmit` acusou **os dois formatos** de rota inventada — a string
+(`return '/(app)/rota-que-nao-existe'`) e o objeto
+(`{ pathname: '/(app)/rota-que-nao-existe', params: { id: '1' } }`). A rota válida
+`{ pathname: '/(app)/liberacoes/[id]', params: { id: '1' } }` compilou. O arquivo de teste foi
+removido e o `router.d.ts` se regenerou sozinho sem ele — o typegen fica observando enquanto o
+servidor está de pé.
+
+**O `expo prebuild` não foi testado nesta rodada.** O dev server bastou para gerar os tipos, e o
+`prebuild` cria `android/` e `ios/` (ambos gitignorados) sem que se precise deles aqui. Se alguém
+depender do `prebuild` para gerar `.expo/types`, **confira**: a afirmação verificada é a do dev
+server.
+
+Conclusão prática, e ela não é "resolvido": **a proteção existe, mas é pressuposto de ambiente, não
+garantia do repositório.** Num clone novo — ou numa máquina que nunca subiu o dev server — o
+`typecheck` valida a _forma_ do objeto de rota e não a rota, e um `router.push` para rota
+inexistente passa batido. Vale para o roteamento de push e para qualquer navegação do app. Fechar
+isso de vez é gerar os tipos antes do `typecheck` (no `pre-push`, ou num CI quando houver) ou parar
+de gitignorar `.expo/types` — decisão que não cabe nesta ficha, mas cabe registrar (achado 1 do §8).
 
 ### 6.5 Sem memo de debug (§7.3.27)
 
@@ -362,19 +445,60 @@ não a rota. Vale para o roteamento de push e para qualquer `router.push` do app
    decidir liberação a partir do conteúdo da notificação.
 8. **Emulador e simulador não têm token.** `getDevicePushTokenAsync()` só funciona em aparelho
    físico — no emulador Android e no simulador iOS ele falha, e não é falha de código. O guarda
-   usual é `expo-device` (`~57.0.1` na lista do SDK), que **não está instalado**: se entrar, é uma
-   segunda dependência, e o §8 precisa da linha. A alternativa é tratar a falha como qualquer outra
-   (armadilha 5) e conviver com o erro no ambiente de desenvolvimento — decida antes, ou alguém vai
-   perder uma tarde achando que quebrou o registro.
+   usual é `expo-device`, **instalado em 08/09/2026 na `57.0.1`** justamente para isso:
+   `Device.isDevice` é uma constante `boolean` síncrona, então o guarda é
+   `if (!Device.isDevice) return;` antes de pedir o token — sem `await`, sem estado. Instalar a
+   dependência não escreve o guarda: **a E1 ainda precisa colocá-lo lá** (achado 3 do §8), ou alguém
+   vai perder uma tarde achando que quebrou o registro.
 
 ---
 
-## 8. O que muda neste repositório na opção 1
+## 8. Achados abertos da conferência contra o repositório
+
+Cinco coisas que a conferência de 08/09/2026 encontrou e que **não são a decisão B7** — são trabalho
+que a ficha E1 herda, ou correção deste documento. Cada uma diz o que já mudou e o que falta.
+
+| #   | Achado                                                              | Onde vive | Estado após esta rodada                                            |
+| --- | ------------------------------------------------------------------- | --------- | ------------------------------------------------------------------ |
+| 1   | `typedRoutes` não protege num checkout limpo                        | §6.4      | **medido nas duas pontas**; a decisão de fechar continua em aberto |
+| 2   | Invalidação por push herda a dívida D5                              | §6.4      | **em aberto** — é código da E1                                     |
+| 3   | `getDevicePushTokenAsync()` falha em emulador, sem guarda           | §7.8      | dependência **instalada**; o guarda **não** foi escrito            |
+| 4   | `.gitignore` não barra a service-account JSON do FCM                | §5.1      | **em aberto** — nada foi mexido nesta rodada                       |
+| 5   | Citação de API invertida (`getLastNotificationResponse` × `…Async`) | §4.1      | **corrigido** neste documento                                      |
+
+**1 — `typedRoutes`.** Rodar o dev server gera `.expo/types/router.d.ts` e o `tsc` passa a rejeitar
+rota inexistente, nos dois formatos de `Href`; sem esse passo, aceita. Como `.expo/` é gitignorado,
+a proteção é do ambiente, não do repositório — quem clonar e rodar só `npm run typecheck` não a tem.
+O conserto é gerar os tipos antes do `typecheck` (hook `pre-push`, ou CI quando houver) ou versionar
+`.expo/types`. **Não é assunto de push**: vale para todo `router.push` do app, e por isso não entra
+na E1 sem uma decisão à parte.
+
+**2 — D5.** `liberacoesKeys.all` é prefixo de `credito(…)` e `historico(…)`. Com push, quem dispara
+a invalidação deixa de ser o usuário e passa a ser o servidor: **o momento de criar o prefixo de fila
+é a E1**, antes de a invalidação existir. Detalhe e justificativa no §6.4.
+
+**3 — guarda de emulador.** `expo-device@57.0.1` está instalado e `Device.isDevice` é constante
+`boolean`. Falta o `if` no hook de registro — e falta decidir se, em emulador, o app apenas pula o
+registro (recomendado) ou trata como erro comum (armadilha 5 do §7).
+
+**4 — service-account.** O `.gitignore` cobre `*.p8`, `*.p12`, `*.jks`, `*.key` e
+`*.mobileprovision`; nenhum padrão pega um `.json` de credencial, e um `*.json` genérico não serve
+porque `google-services.json` **deve** ser commitado. Risco baixo (a chave de envio é artefato de
+servidor), conserto de uma linha — e ele entra junto com o `google-services.json`, na mesma entrega
+do §9.
+
+**5 — a citação invertida.** Está corrigida no §4.1, com a tabela do estado real na 57.0.17. Fica
+registrada aqui porque é a prova do motivo de reconferir contra `node_modules`: o erro veio de
+leitura de documentação, sobreviveu a uma revisão, e só caiu quando os typings entraram no repo.
+
+---
+
+## 9. O que muda neste repositório na opção 1
 
 | Arquivo                                                         | Mudança                                                                                                                            |
 | --------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------- |
-| `package.json`                                                  | `expo-notifications@~57.0.15` — versão fixada pelo SDK 57 (§4) (🔒 B7)                                                             |
-| `package.json`                                                  | `expo-device@~57.0.1` **se** o guarda de emulador da armadilha 8 entrar                                                            |
+| `package.json`                                                  | ✅ `expo-notifications@~57.0.17` — instalado em 08/09/2026 (§4)                                                                    |
+| `package.json`                                                  | ✅ `expo-device@~57.0.1` — instalado; falta **usar** no guarda da armadilha 8 (§8, achado 3)                                       |
 | `app.json`                                                      | `plugins`: `expo-notifications` (ícone, cor, canal); `android.googleServicesFile`; `ios` background mode se houver push silencioso |
 | `google-services.json`                                          | novo, na raiz, commitado                                                                                                           |
 | `src/features/push/lib/permissao-notificacao.ts`                | novo: `garantirPermissao()` do §6.1                                                                                                |
@@ -394,7 +518,7 @@ roteamento devolve um `Href` e a invalidação usa a query key, que é o contrat
 
 ---
 
-## 9. Perguntas que precisam de resposta humana
+## 10. Perguntas que precisam de resposta humana
 
 1. **O Orion já envia por FCM V1** (OAuth 2.0 + service account), ou ainda usa a API legada de
    servidor? Se for a legada, isso é trabalho obrigatório e independe desta decisão.
@@ -410,7 +534,7 @@ roteamento devolve um `Href` e a invalidação usa a query key, que é o contrat
 
 ---
 
-## 10. Como isso se encaixa no plano
+## 11. Como isso se encaixa no plano
 
 O Bloco E tem duas fichas e elas não dependem uma da outra:
 
@@ -426,7 +550,7 @@ de notificações. A ordem do plano permite, e o `CLAUDE.md §6` deve refletir i
 
 ---
 
-## 11. Referências
+## 12. Referências
 
 - `docs/analise-app-original.md` §5.2 (`tokenpush`), §5.4 (FCM/APNs no legado), §3.2 (permissão em
   laço e roteamento por form instanciado), §7.2.11 (JSON de teste), §7.2.13 (`Sleep`), §7.2.14 (laço
@@ -434,11 +558,27 @@ de notificações. A ordem do plano permite, e o `CLAUDE.md §6` deve refletir i
 - `docs/plano-migracao.md` — ficha E1, ficha E2 e §6 (🔒 B7).
 - `CLAUDE.md` §4.4 (badge com `skipToken`), §4.8 (entrada não confiável), §5.4 (`console.warn`),
   §5.10 (sem espera artificial), §7.7, §7.8 (bundle id compartilhado).
-- Conferido no próprio repositório em 08/09/2026 (é o que dá para reproduzir sem rede):
-  `node_modules/expo/bundledNativeModules.json` (versão de `expo-notifications` e `expo-device` para
-  este SDK), `node_modules/expo-linking/build/Linking.d.ts` (`openSettings`),
-  `src/features/liberacoes/api/liberacoes.keys.ts` (prefixo do D5), `app.json` (plugins e
-  identificadores), `.gitignore` (credenciais) e um `tsc --noEmit` descartável para o `Href` do §6.4.
+- Conferido no próprio repositório em 08/09/2026, **com `expo-notifications@57.0.17` e
+  `expo-device@57.0.1` instalados** (é o que dá para reproduzir sem rede e sem aparelho):
+  - `node_modules/expo-notifications/build/index.d.ts` — superfície pública do pacote.
+  - `build/NotificationsEmitter.d.ts` — `addNotificationResponseReceivedListener` e a deprecação
+    real do par `…Async` (§4.1).
+  - `build/Notifications.types.d.ts` — `NotificationBehavior`, `shouldShowAlert` deprecado e os
+    quatro campos obrigatórios.
+  - `build/NotificationPermissions.d.ts` + `.types.d.ts` — `granted`/`canAskAgain` e o enum
+    `IosAuthorizationStatus` (§6.1).
+  - `build/getDevicePushTokenAsync.d.ts` + `build/Tokens.types.d.ts` — `DevicePushToken` com
+    `type: 'ios' | 'android'`.
+  - `build/useLastNotificationResponse.d.ts`, `build/setBadgeCountAsync.d.ts`,
+    `build/setNotificationChannelAsync.d.ts`.
+  - `plugin/build/withNotifications.d.ts` e `plugin/build/withNotificationsIOS.js` — props do config
+    plugin, `aps-environment` e `UIBackgroundModes` (§5).
+  - `node_modules/expo-device/build/Device.d.ts` — `isDevice` como constante `boolean`.
+  - `node_modules/expo-linking/build/Linking.d.ts` (`openSettings`),
+    `node_modules/expo/bundledNativeModules.json` (o range que o SDK fixa),
+    `src/features/liberacoes/api/liberacoes.keys.ts` (prefixo do D5), `app.json`, `.gitignore`.
+  - `npx expo start` para gerar `.expo/types/router.d.ts` + um `tsc --noEmit` descartável, antes e
+    depois, para medir o `Href` do §6.4.
 - Expo, consultado em 04/09/2026:
   - [`expo-notifications`](https://docs.expo.dev/versions/latest/sdk/notifications/) — API, deprecação
     de `shouldShowAlert`, canal antes do token no Android 13, `enableBackgroundRemoteNotifications`.

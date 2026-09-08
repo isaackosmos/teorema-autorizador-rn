@@ -619,6 +619,9 @@ Precisam de resposta do time antes de fechar as telas correspondentes.
 7. **Push: FCM no Android e APNs no iOS.** O servidor precisa tratar os dois caminhos. Opções,
    biblioteca recomendada e a configuração exigida em cada plataforma em
    [`docs/decisao-push.md`](docs/decisao-push.md) — **a decisão do time ainda não foi tomada**.
+   `expo-notifications` e `expo-device` **já estão no `package.json`** (08/09/2026), instalados
+   só para conferir a API contra os typings: **nenhum import no `src/`, nada no `app.json`**.
+   Dependência instalada não é decisão tomada — não trate como sinal de que o B7 caiu.
 8. **`br.inf.teorema.autorizador4`** foi mantido como identificador em Android e iOS, para o
    app novo substituir o antigo na loja. Enquanto os dois coexistirem em desenvolvimento, use
    um identificador de variante para não sobrescrever a instalação legada.
