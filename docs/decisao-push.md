@@ -1,7 +1,8 @@
 # Decisão B7 — caminho de push (FCM no Android, APNs no iOS)
 
-> **Status:** **opções levantadas; decisão do time pendente.** Nenhum código de feature escrito e
-> nada ligado no `app.json`; as duas dependências da opção 1 já estão instaladas (ver abaixo).
+> **Status:** **decisão do time pendente; a ficha E1 foi implementada assumindo a opção 1.**
+> `src/features/push/` existe e o plugin está no `app.json` — ver §8.1. O B7 continua aberto
+> porque ele decide **quem entrega o push**, e essa resposta é do time, não do app.
 > **Trava:** `CLAUDE.md §7.7` · `docs/plano-migracao.md` bloqueio 🔒 B7 (Bloco E, ficha E1 + tela 13).
 > **Escopo:** decide **quem entrega o push** e **qual biblioteca** o app usa, lista a configuração
 > exigida em cada plataforma e mostra como as quatro correções da ficha E1 se implementam. Não
@@ -385,6 +386,34 @@ notificação recebida refaz a análise de crédito de todo cliente em cache. **
 criar o prefixo de fila** que o D5 já previa (`liberacoesKeys.fila`, com `pendentes` abaixo dele) e
 invalidar só ele — senão a dívida deixa de ser dívida e vira defeito.
 
+#### 6.4.1 Como ficou a invalidação (decisão registrada)
+
+Três decisões, e a razão de cada uma:
+
+**1. O prefixo de fila existe, e a chave não mudou de forma.** `liberacoesKeys.fila` é
+`['liberacoes', 'pendentes']` e `pendentes(userCode)` continua produzindo
+`['liberacoes', 'pendentes', userCode]` — exatamente o array de antes. Nomear o prefixo não
+invalidou cache de ninguém nem alterou o comportamento de quem já existia; só passou a existir um
+alvo estreito para invalidar. `credito` e `historico` seguem fora dele.
+
+**2. O push invalida por tipo, não por feature.** `useRoteamentoPush` não recebe "invalide a fila":
+recebe `atualizarPorTipo`, um `Partial<Record<TipoNotificacao, () => void>>`, e chama
+`atualizarPorTipo[payload.tipo]?.()`. Notificação de `liberacao` chama o efeito de `liberacao`;
+`cotacao` não tem efeito porque abre um web system, que não tem cache do TanStack Query. Um tipo
+novo entra com o seu próprio efeito — ou com nenhum — em vez de herdar um alvo largo por descuido.
+
+**3. A ligação mora na composição, não dentro de uma feature.** `features/push` não importa
+`liberacoesKeys`: isso seria feature importando feature, que o `CLAUDE.md §2` proíbe — e a versão
+anterior deste documento afirmava, errado, que a query key valeria como "contrato público" para
+esse fim. Quem sabe invalidar a fila é a própria fila, em
+`features/liberacoes/hooks/use-invalidar-fila.ts`; quem junta as duas pontas é
+`app/(app)/_layout.tsx`, que é o que `app/` existe para fazer.
+
+**O que continua devendo:** `use-decidir-liberacao.ts` ainda invalida `liberacoesKeys.all`. Não
+mudei junto porque isso altera o que o usuário vê **depois de decidir** — é revisão da ficha C2,
+não efeito colateral de push. O D5 segue no `CLAUDE.md §9`, agora com o prefixo pronto e uma linha
+de distância.
+
 **O `Href` do exemplo é rede de segurança só depois que os tipos existem — e eles não vêm no
 checkout.** O `typedRoutes` está ligado no `app.json`, mas os tipos gerados vivem em
 `.expo/types/router.d.ts`, que é **gitignorado**. Conferido em 08/09/2026 nas duas pontas:
@@ -491,27 +520,65 @@ do §9.
 registrada aqui porque é a prova do motivo de reconferir contra `node_modules`: o erro veio de
 leitura de documentação, sobreviveu a uma revisão, e só caiu quando os typings entraram no repo.
 
+### 8.1 O que a implementação da E1 fechou
+
+A ficha E1 foi escrita assumindo a **opção 1**. Arquivos novos, todos em `src/features/push/`:
+`schemas/push-payload.schema.ts` e `schemas/token-push.schema.ts`, `api/push.api.ts`,
+`lib/permissao-notificacao.ts`, `lib/canal-notificacao.ts`, `lib/exibicao-notificacao.ts`,
+`lib/payload-push.ts`, `lib/rota-da-notificacao.ts`, `lib/registro-push.ts`,
+`hooks/use-registrar-push.ts`, `hooks/use-roteamento-push.ts`, `stores/estado-push.store.ts` e
+`components/aviso-push.tsx`. Fora da feature: o plugin no `app.json`,
+`liberacoesKeys.fila`, `features/liberacoes/hooks/use-invalidar-fila.ts`, a composição em
+`app/(app)/_layout.tsx`, o handler no `app/_layout.tsx` e o aviso no menu.
+
+| Achado | O que mudou                                                                                                                                                                               |
+| ------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 1      | **continua aberto** — nada aqui muda o gitignore de `.expo/types`; é decisão de portão, não de push                                                                                       |
+| 2      | **pago** — ver §6.4.1                                                                                                                                                                     |
+| 3      | **fechado** — `registro-push.ts` sai por `Device.isDevice` antes de pedir o token                                                                                                         |
+| 4      | **fechado** — o `.gitignore` barra `*service-account*.json`, `*serviceaccount*.json`, `*-adminsdk-*.json` e `fcm-*.json`, e diz por escrito que `google-services.json` continua commitado |
+| 5      | **corrigido** — §4.1                                                                                                                                                                      |
+
+**O que a E1 deliberadamente não fez**, porque não é código:
+
+- `google-services.json` e `android.googleServicesFile` (§5.1) — dependem do Firebase Console. Sem
+  eles o app compila e roda; o que não acontece é o registro no FCM.
+- Credencial APNs `.p8`, capability e ambiente sandbox × produção (§5.2).
+- O envio no Orion e as seis perguntas do §10 — em particular a lista real de payloads
+  (pergunta 5), que é o que decide se `pushPayloadSchema` está completo.
+
+**Nada foi executado em aparelho.** `lint` e `typecheck` passam, e é só isso que passou: sem build
+nativo, nenhuma permissão foi pedida, nenhum token obtido e nenhuma notificação roteada.
+
 ---
 
 ## 9. O que muda neste repositório na opção 1
 
-| Arquivo                                                         | Mudança                                                                                                                            |
-| --------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------- |
-| `package.json`                                                  | ✅ `expo-notifications@~57.0.17` — instalado em 08/09/2026 (§4)                                                                    |
-| `package.json`                                                  | ✅ `expo-device@~57.0.1` — instalado; falta **usar** no guarda da armadilha 8 (§8, achado 3)                                       |
-| `app.json`                                                      | `plugins`: `expo-notifications` (ícone, cor, canal); `android.googleServicesFile`; `ios` background mode se houver push silencioso |
-| `google-services.json`                                          | novo, na raiz, commitado                                                                                                           |
-| `src/features/push/lib/permissao-notificacao.ts`                | novo: `garantirPermissao()` do §6.1                                                                                                |
-| `src/features/push/lib/rota-da-notificacao.ts`                  | novo: payload → `Href` (§6.4)                                                                                                      |
-| `src/features/push/schemas/push-payload.schema.ts`              | novo: união discriminada validando o payload                                                                                       |
-| `src/features/push/api/push.api.ts`                             | novo: `POST /v1/application/tokenpush` no `centralApi`                                                                             |
-| `src/features/push/hooks/use-registrar-push.ts`                 | novo: permissão → token → `tokenpush`; roda com aparelho registrado                                                                |
-| `src/features/push/hooks/use-roteamento-push.ts`                | novo: listener + cold start + invalidação de cache                                                                                 |
-| `src/app/_layout.tsx`                                           | `setNotificationHandler` + os dois hooks acima — só composição                                                                     |
-| `src/features/notificacoes/hooks/use-notificacoes-nao-lidas.ts` | sai o `skipToken` quando E2 tiver endpoint; o badge é o mesmo cache                                                                |
-| `src/features/liberacoes/api/liberacoes.keys.ts`                | prefixo de fila para a invalidação do §6.4 não derrubar `credito`/`historico` — paga o D5                                          |
-| `.gitignore`                                                    | regra para a service-account JSON do FCM (§5.1)                                                                                    |
-| `CLAUDE.md §6` · `§7.7` · `§9`                                  | linha de push da infraestrutura transversal, decisão registrada, D5 baixado da dívida                                              |
+| Arquivo                                                         | Mudança                                                                                                                                                                              |
+| --------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `package.json`                                                  | ✅ `expo-notifications@~57.0.17` — instalado em 08/09/2026 (§4)                                                                                                                      |
+| `package.json`                                                  | ✅ `expo-device@~57.0.1` — instalado e usado no guarda de emulador                                                                                                                   |
+| `app.json`                                                      | 🟨 `plugins`: `expo-notifications` com `defaultChannel: "liberacoes"`. Falta `android.googleServicesFile` (depende do arquivo) e o background mode do iOS, se houver push silencioso |
+| `google-services.json`                                          | ⬜ depende do Firebase Console; entra na raiz, commitado                                                                                                                             |
+| `src/features/push/lib/permissao-notificacao.ts`                | ✅ `garantirPermissao()` do §6.1 + `abrirConfiguracoesDeNotificacao()` do §6.2                                                                                                       |
+| `src/features/push/lib/canal-notificacao.ts`                    | ✅ canal Android criado antes do token (armadilha 1)                                                                                                                                 |
+| `src/features/push/lib/exibicao-notificacao.ts`                 | ✅ `setNotificationHandler` com os quatro campos obrigatórios (§4.1)                                                                                                                 |
+| `src/features/push/lib/registro-push.ts`                        | ✅ guarda de emulador → canal → permissão → token → `tokenpush`                                                                                                                      |
+| `src/features/push/lib/payload-push.ts`                         | ✅ `data` da notificação → payload validado ou `null` com `console.warn`                                                                                                             |
+| `src/features/push/lib/rota-da-notificacao.ts`                  | ✅ payload → `Href` (§6.4)                                                                                                                                                           |
+| `src/features/push/schemas/push-payload.schema.ts`              | ✅ união discriminada validando o payload                                                                                                                                            |
+| `src/features/push/schemas/token-push.schema.ts`                | ✅ corpo do `tokenpush`; **sem** campo de plataforma, ver §10 pergunta 2                                                                                                             |
+| `src/features/push/api/push.api.ts`                             | ✅ `POST /v1/application/tokenpush` no `centralApi`                                                                                                                                  |
+| `src/features/push/hooks/use-registrar-push.ts`                 | ✅ dispara no efeito, com `device.registerId`; falha vira `console.warn`                                                                                                             |
+| `src/features/push/hooks/use-roteamento-push.ts`                | ✅ listener + `useLastNotificationResponse` + efeito por tipo                                                                                                                        |
+| `src/features/push/stores/estado-push.store.ts`                 | ✅ estado do registro, não persistido — liga o hook ao aviso                                                                                                                         |
+| `src/features/push/components/aviso-push.tsx`                   | ✅ aviso dispensável, com Configurações no ramo definitivo (§6.2)                                                                                                                    |
+| `src/app/_layout.tsx`                                           | ✅ `configurarExibicaoEmForeground()` no módulo, antes de qualquer notificação                                                                                                       |
+| `src/app/(app)/_layout.tsx`                                     | ✅ os dois hooks e a ligação push → fila; é aqui que as duas features se encontram                                                                                                   |
+| `src/features/notificacoes/hooks/use-notificacoes-nao-lidas.ts` | sai o `skipToken` quando E2 tiver endpoint; o badge é o mesmo cache                                                                                                                  |
+| `src/features/liberacoes/api/liberacoes.keys.ts`                | prefixo de fila para a invalidação do §6.4 não derrubar `credito`/`historico` — paga o D5                                                                                            |
+| `.gitignore`                                                    | regra para a service-account JSON do FCM (§5.1)                                                                                                                                      |
+| `CLAUDE.md §6` · `§7.7` · `§9`                                  | linha de push da infraestrutura transversal, decisão registrada, D5 baixado da dívida                                                                                                |
 
 `features/push/` é feature nova e **não** importa de `features/liberacoes/` (`CLAUDE.md §2`): o
 roteamento devolve um `Href` e a invalidação usa a query key, que é o contrato público da fila.

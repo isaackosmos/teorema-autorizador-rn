@@ -6,7 +6,12 @@ import { StatusBar } from 'expo-status-bar';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 
+import { configurarExibicaoEmForeground } from '@/features/push/lib/exibicao-notificacao';
 import { queryClient } from '@/shared/config/query-client';
+
+// Precisa valer antes da primeira notificação chegar, e não depende de nenhum
+// provider — por isso fica no módulo, não dentro do componente.
+configurarExibicaoEmForeground();
 
 /** Layout raiz: só monta providers. Nenhuma regra de negócio aqui. */
 export default function RootLayout() {

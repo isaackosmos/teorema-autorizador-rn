@@ -4,6 +4,7 @@ import { ScrollView } from 'react-native';
 
 import { useLogoEmpresa } from '@/features/empresa/hooks/use-logo-empresa';
 import { useNotificacoesNaoLidas } from '@/features/notificacoes/hooks/use-notificacoes-nao-lidas';
+import { AvisoPush } from '@/features/push/components/aviso-push';
 import { AppHeader } from '@/shared/components/ui/app-header';
 import { Button } from '@/shared/components/ui/button';
 import { Screen } from '@/shared/components/ui/screen';
@@ -58,6 +59,9 @@ export default function MenuScreen() {
       />
 
       <ScrollView contentContainerClassName="gap-3 p-4">
+        {/* Só aparece com a permissão de notificação recusada, e é dispensável. */}
+        <AvisoPush />
+
         {ITENS.map((item) => (
           <Button
             key={item.titulo}

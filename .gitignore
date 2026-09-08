@@ -47,3 +47,13 @@ yarn-error.*
 
 # Ferramentas
 .eslintcache
+
+# Credencial de ENVIO do FCM (service-account do Orion). Ela assina o OAuth do
+# FCM V1 e vale como senha do servidor: não tem motivo para passar por este
+# repositório (docs/decisao-push.md §5.1, achado 4 do §8).
+# Atenção: `google-services.json` é outra coisa — só identificadores públicos,
+# obrigatório para o app registrar no FCM, e DEVE continuar commitado.
+*service-account*.json
+*serviceaccount*.json
+*-adminsdk-*.json
+fcm-*.json

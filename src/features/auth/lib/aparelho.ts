@@ -6,8 +6,9 @@ import { Platform } from 'react-native';
  *
  * É rótulo, não identidade: o servidor grava em `REGISTER.DEVICE_NAME` e nada
  * decide por ele. Por isso sai do que o React Native já expõe em
- * `Platform.constants`, sem instalar `expo-device` — trocar a fonte mexe só
- * aqui.
+ * `Platform.constants`, sem depender do `expo-device` — que está instalado
+ * para o guarda de emulador do push (docs/decisao-push.md §8, achado 3), não
+ * para nomear aparelho. Trocar a fonte mexe só aqui.
  */
 export function nomeDoAparelho(): string {
   if (Platform.OS === 'android') {
