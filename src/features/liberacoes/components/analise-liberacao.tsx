@@ -4,9 +4,14 @@ import { KeyboardAvoidingView, Platform, ScrollView, Text, View } from 'react-na
 import { DecisaoForm } from '@/features/liberacoes/components/decisao-form';
 import { LiberacaoResumo } from '@/features/liberacoes/components/liberacao-resumo';
 import { useAnaliseLiberacao } from '@/features/liberacoes/hooks/use-analise-liberacao';
+import { borderoAberturaSchema } from '@/features/liberacoes/schemas/bordero-abertura.schema';
+import { useBorderoAberturaStore } from '@/features/liberacoes/stores/bordero-abertura.store';
 
 import type { Decisao, Liberacao } from '@/features/liberacoes/schemas/liberacao.schema';
 import type { ApiError } from '@/shared/lib/http/errors';
+
+/** Web system que decide um borderô — o `sistema` da rota `(app)/web/[sistema]`. */
+const SISTEMA_BORDERO = 'autorizador';
 
 interface AnaliseLiberacaoProps {
   liberacao: Liberacao;
@@ -21,6 +26,7 @@ interface AnaliseLiberacaoProps {
  */
 export function AnaliseLiberacao({ liberacao, onConcluir }: AnaliseLiberacaoProps) {
   const router = useRouter();
+  const publicarAbertura = useBorderoAberturaStore((s) => s.publicar);
   const { reservando, erroReserva, erroDecisao, decisaoPendente, decidir } = useAnaliseLiberacao(
     liberacao,
     onConcluir,
@@ -28,12 +34,29 @@ export function AnaliseLiberacao({ liberacao, onConcluir }: AnaliseLiberacaoProp
 
   const sequenciaBordero = liberacao.borderoSequencia;
 
-  /** Sequência do payload, nunca extraída do texto do label (§7.1.7). */
+  /**
+   * Sequência do payload, nunca extraída do texto do label (§7.1.7).
+   *
+   * O contexto viaja pelo store de ida, não pela URL: `resposta` é texto livre
+   * do usuário, e parâmetro de rota fica no histórico — mesma classe de
+   * problema do fragmento do original (§4.11). Na URL sobra só `sistema`.
+   *
+   * A guarda existe porque `borderoSequencia` é anulável: o atalho só aparece
+   * com sequência, e sem ela não há borderô para abrir — nem contexto válido a
+   * publicar (o schema exige a sequência).
+   */
   function abrirBordero(resposta: string) {
-    router.push({
-      pathname: '/(app)/web/[sistema]',
-      params: { sistema: 'autorizador', sequencia: sequenciaBordero ?? '', resposta },
-    });
+    if (!sequenciaBordero) return;
+
+    publicarAbertura(
+      borderoAberturaSchema.parse({
+        sistema: SISTEMA_BORDERO,
+        sequencia: sequenciaBordero,
+        resposta,
+      }),
+    );
+
+    router.push({ pathname: '/(app)/web/[sistema]', params: { sistema: SISTEMA_BORDERO } });
   }
 
   function verCliente() {

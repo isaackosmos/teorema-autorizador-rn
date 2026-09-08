@@ -328,7 +328,10 @@ item; a reserva sai em `use-reserva-liberacao.ts`, que devolve no unmount só o 
 reservou e ainda não decidiu; a decisão vai por `useDecidirLiberacao` e o feedback é estado da rota,
 não da lista. O retorno do borderô entra pelo `bordero-retorno.store.ts`, validado por
 `borderoRetornoSchema`, e vira decisão em `decisaoDoBordero` (`S`/`P` → autoriza, `N` → reprova,
-vazio → não decide). Sem "Sugestão IA", sem cadeado, sem `Sleep`.
+vazio → não decide); a ida usa o gêmeo `bordero-abertura.store.ts`, validado por
+`borderoAberturaSchema`, para que a URL da rota web leve só `sistema` — texto livre do usuário não é
+parâmetro de rota (`CLAUDE.md §4.11`, metade (b) do D7). Sem "Sugestão IA", sem cadeado, sem
+`Sleep`.
 
 **Preservar** — reserva ao abrir; devolução ao sair sem decidir (e só se a liberação ainda estiver em
 `'1'` para o próprio usuário); ciclo `0 → 1 → 2|3`; o texto livre de resposta acompanhando a decisão;

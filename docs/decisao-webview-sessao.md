@@ -1,22 +1,28 @@
 # Decisão B6 — sessão dentro da WebView
 
-> **Status:** **opções levantadas; decisão do time pendente.** Nada foi implementado — nem a
-> dependência existe ainda (🔒 B5).
+> **Status:** **opções levantadas; decisão do time pendente.** Nada do mecanismo de sessão foi
+> implementado — nem a dependência existe ainda (🔒 B5).
 > **Trava:** `CLAUDE.md §7.4` · `docs/plano-migracao.md` bloqueio 🔒 B6 (Bloco D, telas 14–17).
 > **Escopo:** este documento decide **como a sessão chega ao HTML** e, no mesmo contrato, como o
 > **contexto do borderô** (`sequencia` + `resposta`) chega lá — o desvio D7 anotado na revisão do
 > Bloco C. Não decide 🔒 B2 (nativo × web) nem 🔒 B5 (instalar `react-native-webview`): as duas
 > opções abaixo pressupõem que a resposta de B2 é **web**.
+>
+> **Atualização de 04/09/2026 — a metade do D7 que era só do app já foi corrigida**, sem esperar a
+> decisão: a ida da análise para a rota `web/[sistema]` passou para o
+> `bordero-abertura.store.ts` e na URL sobrou só `sistema` (§2.2, §7b). O que continua em aberto
+> aqui é a travessia app → HTML, para a sessão **e** para esse contexto.
 
 ---
 
 ## 1. Recomendação em uma frase
 
 **Handshake por `postMessage`** — a página anuncia que está pronta, o app responde com **um** payload
-tipado contendo sessão _e_ contexto — porque é a única opção que fecha B6 **e** D7 sem depender do
-Orion, e porque `injectedJavaScriptBeforeContentLoaded` sozinho não é confiável no Android. O
-**cookie `HttpOnly`** (opção B) é melhor em segurança, mas não cobre o D7 e exige mudança de
-servidor; se vamos pagar uma mudança de servidor, o alvo certo é o **ticket de uso único**
+tipado contendo sessão _e_ contexto — porque é a única opção que fecha B6 **e** a metade (a) do D7
+sem depender do Orion, e porque `injectedJavaScriptBeforeContentLoaded` sozinho não é confiável no
+Android. O **cookie `HttpOnly`** (opção B) é melhor em segurança, mas não cobre o contexto do D7 e
+exige mudança de servidor; se vamos pagar uma mudança de servidor, o alvo certo é o
+**ticket de uso único**
 (opção C), que resolve o problema de raiz. Caminho: **A′ agora, C como alvo.**
 
 ---
@@ -44,28 +50,39 @@ Por que isso é ruim, concretamente:
 
 ### 2.2 O que já existe neste repositório
 
-| Arquivo                                                       | Situação                                                              |
-| ------------------------------------------------------------- | --------------------------------------------------------------------- |
-| `src/app/(app)/web/[sistema].tsx`                             | placeholder; o comentário já proíbe o fragmento                       |
-| `src/features/liberacoes/schemas/bordero-retorno.schema.ts`   | contrato de **volta** já tipado (`sequencia`, `situacao`, `resposta`) |
-| `src/features/liberacoes/stores/bordero-retorno.store.ts`     | canal de volta, não persistido, consumido uma vez (`CLAUDE.md §4.11`) |
-| `src/features/liberacoes/components/analise-liberacao.tsx:33` | **o D7**: `params: { sistema, sequencia, resposta }` — a ida é URL    |
+| Arquivo                                                      | Situação                                                                         |
+| ------------------------------------------------------------ | -------------------------------------------------------------------------------- |
+| `src/app/(app)/web/[sistema].tsx`                            | placeholder; o comentário já proíbe o fragmento                                  |
+| `src/features/liberacoes/schemas/bordero-retorno.schema.ts`  | contrato de **volta** já tipado (`sequencia`, `situacao`, `resposta`)            |
+| `src/features/liberacoes/stores/bordero-retorno.store.ts`    | canal de volta, não persistido, consumido uma vez (`CLAUDE.md §4.11`)            |
+| `src/features/liberacoes/schemas/bordero-abertura.schema.ts` | contrato de **ida** já tipado (`sistema`, `sequencia`, `resposta`)               |
+| `src/features/liberacoes/stores/bordero-abertura.store.ts`   | canal de ida, gêmeo do de volta; consumido pelo `sistema` da rota                |
+| `src/features/liberacoes/components/analise-liberacao.tsx`   | `publicar()` + `push({ params: { sistema } })` — **a metade (b) do D7, fechada** |
 
-Ou seja: o caminho de **volta** já está resolvido e tipado. Falta o de **ida** — e hoje ele é a mesma
-classe de problema do fragmento, um nível acima:
+Ou seja: os dois caminhos **dentro do app** já estão resolvidos e tipados. Até esta correção a ida
+era a mesma classe de problema do fragmento, um nível acima:
 
 ```tsx
+// ANTES — a ida era URL
 router.push({
   pathname: '/(app)/web/[sistema]',
   params: { sistema: 'autorizador', sequencia: sequenciaBordero ?? '', resposta },
 });
+
+// AGORA — na URL sobra só o parâmetro da rota
+publicarAbertura(borderoAberturaSchema.parse({ sistema: SISTEMA_BORDERO, sequencia, resposta }));
+router.push({ pathname: '/(app)/web/[sistema]', params: { sistema: SISTEMA_BORDERO } });
 ```
 
-`resposta` é **texto livre digitado pelo usuário** sobre uma decisão financeira, viajando numa URL de
-rota. Ainda não é a URL da WebView, mas é uma URL: entra no estado de navegação do Expo Router, é
-serializável, aparece em deep link e em qualquer log de navegação. E, se a tela web for escrita sem
-decidir B6 antes, é dessa URL que o desenvolvedor vai copiar os valores direto para a URL do HTML —
-o fragmento voltaria por inércia.
+O motivo, registrado porque vale para qualquer rota nova: `resposta` é **texto livre digitado pelo
+usuário** sobre uma decisão financeira. Como parâmetro de rota ainda não era a URL da WebView, mas
+era uma URL — entra no estado de navegação do Expo Router, é serializável, aparece em deep link e em
+qualquer log de navegação. E, pior, se a tela web fosse escrita a partir dela, era desses parâmetros
+que os valores seriam copiados direto para a URL do HTML: o fragmento voltaria por inércia. Fechar a
+ida agora tira esse atalho do caminho **antes** de o Bloco D começar.
+
+O que a decisão B6 ainda precisa cobrir é a metade (a): como esse contexto — e a sessão — atravessam
+a fronteira app → HTML. Ver §7.
 
 ### 2.3 Quatro fatos que restringem as opções
 
@@ -270,7 +287,8 @@ abrir uma frente no Orion, ela vá para C e não para B.
 
 ## 7. Como isso resolve o D7 — e o que muda no app em qualquer cenário
 
-O D7 são **dois trechos de URL**, e eles se resolvem em lugares diferentes:
+O D7 eram **dois trechos de URL**, e eles se resolvem em lugares diferentes. O segundo já está
+resolvido; o primeiro é o que esta decisão trava:
 
 **(a) App → WebView.** Com A′, `sequencia` e `resposta` entram no mesmo payload do handshake:
 
@@ -282,17 +300,22 @@ O D7 são **dois trechos de URL**, e eles se resolvem em lugares diferentes:
 Nada disso toca a URL do HTML. Com B, o `contexto` fica órfão e volta para a query — o D7 continua
 aberto.
 
-**(b) Análise → rota `web/[sistema]`.** Independe da opção escolhida: `resposta` **não deve** ser
-parâmetro de rota. O repositório já tem o padrão exato, e é o espelho do que já funciona — o
-`bordero-retorno.store.ts` (`CLAUDE.md §4.11`) resolve a **volta**; falta o gêmeo da **ida**:
+**(b) Análise → rota `web/[sistema]`. ✅ FEITO** — independia da opção escolhida, então foi corrigido
+antes da decisão. O padrão é o espelho do que já funcionava: o `bordero-retorno.store.ts`
+(`CLAUDE.md §4.11`) resolve a **volta**, e agora existe o gêmeo da **ida**:
 
 - `features/liberacoes/stores/bordero-abertura.store.ts` — não persistido, `publicar(payload)` na
-  análise, `consumir(sequencia)` na rota web, limpando na leitura;
-- payload validado por um `borderoAberturaSchema` novo, irmão do `borderoRetornoSchema`;
+  análise, `consumir(sistema)` na rota web, limpando na leitura. A chave é o `sistema` porque é a
+  única identidade que a rota tem: ela não conhece a `sequencia` (que é justamente o dado que saiu
+  da URL);
+- payload validado por `borderoAberturaSchema`, irmão do `borderoRetornoSchema`, reaproveitando o
+  campo `resposta` de `decisaoSchema` — é o mesmo texto, com o mesmo limite;
 - na URL da rota sobra **só** `sistema`, que é o parâmetro da rota e não é dado de ninguém.
 
-Assim o texto livre do usuário deixa de existir como URL em qualquer ponto do trajeto, e o par
-ida/volta fica simétrico e legível: um store para cada sentido, o mesmo padrão nos dois.
+O texto livre do usuário deixou de existir como URL dentro do app, e o par ida/volta ficou simétrico:
+um store para cada sentido, o mesmo padrão nos dois. Falta só o **consumo**, que é do contêiner web
+— hoje placeholder. Com A′, `consumir(sistema)` alimenta direto o `contexto` do payload de handshake;
+com B, esse mesmo contexto é o que fica órfão e volta para a query do HTML.
 
 ---
 
@@ -313,7 +336,9 @@ ida/volta fica simétrico e legível: um store para cada sentido, o mesmo padrã
    | HTML → app | `bordero:retorno`  | `{ sequencia, situacao, resposta }` (já existe) |
    | HTML → app | `navegacao:fechar` | — (substitui `app://menu` e `delphi://`)        |
 
-4. **Implementar A′ + o store de ida** do §7 na mesma entrega do Bloco D.
+4. **Implementar A′** na entrega do Bloco D e **consumir o store de ida** no contêiner web:
+   `consumir(sistema)` → `contexto` do handshake (§7b). O store e o schema já existem; falta a
+   ponta que lê.
 5. **Registrar C como pendência de servidor**, junto de 🔒 B3 e 🔒 B4 — não como "melhoria futura"
    vaga, mas como a forma correta que o app hoje não pode implementar sozinho.
 
@@ -341,16 +366,16 @@ ida/volta fica simétrico e legível: um store para cada sentido, o mesmo padrã
 
 ## 10. O que muda neste repositório se A′ for aprovada
 
-| Arquivo                                                       | Mudança                                                             |
-| ------------------------------------------------------------- | ------------------------------------------------------------------- |
-| `package.json`                                                | `react-native-webview` (🔒 B5)                                      |
-| `src/app/(app)/web/[sistema].tsx`                             | placeholder → WebView + handshake; só compõe (`plano §5.1`)         |
-| `src/features/web-systems/schemas/mensagem-web.schema.ts`     | novo: união discriminada das mensagens da ponte                     |
-| `src/features/web-systems/lib/sessao-web.ts`                  | novo: monta o payload por `sistema` a partir da sessão (fato 2.3.3) |
-| `src/features/liberacoes/stores/bordero-abertura.store.ts`    | novo: canal de ida, espelho do de volta (§7b)                       |
-| `src/features/liberacoes/schemas/bordero-abertura.schema.ts`  | novo: irmão do `borderoRetornoSchema`                               |
-| `src/features/liberacoes/components/analise-liberacao.tsx:33` | `publicar()` + `router.push({ params: { sistema } })` — fim do D7   |
-| `CLAUDE.md §6` · `§7.4` · `§9`                                | status das telas 14–17, decisão registrada, D7 baixado da dívida    |
+| Arquivo                                                      | Mudança                                                             |
+| ------------------------------------------------------------ | ------------------------------------------------------------------- |
+| `package.json`                                               | `react-native-webview` (🔒 B5)                                      |
+| `src/app/(app)/web/[sistema].tsx`                            | placeholder → WebView + handshake; só compõe (`plano §5.1`)         |
+| `src/features/web-systems/schemas/mensagem-web.schema.ts`    | novo: união discriminada das mensagens da ponte                     |
+| `src/features/web-systems/lib/sessao-web.ts`                 | novo: monta o payload por `sistema` a partir da sessão (fato 2.3.3) |
+| `src/features/liberacoes/stores/bordero-abertura.store.ts`   | ✅ já existe: canal de ida, espelho do de volta (§7b)               |
+| `src/features/liberacoes/schemas/bordero-abertura.schema.ts` | ✅ já existe: irmão do `borderoRetornoSchema`                       |
+| `src/features/liberacoes/components/analise-liberacao.tsx`   | ✅ já feito: `publicar()` + `push({ params: { sistema } })`         |
+| `CLAUDE.md §6` · `§7.4`                                      | status das telas 14–17 e decisão registrada; o resto do D7 baixado  |
 
 O `features/web-systems/` é feature nova e não importa de `features/liberacoes/` — o contexto do
 borderô chega pelo store de ida, consumido pela **rota**, que é quem pode falar com as duas
@@ -378,7 +403,7 @@ borderô chega pelo store de ida, consumido pela **rota**, que é quem pode fala
 - `docs/plano-migracao.md` — Bloco D e §6 (🔒 B2, B5, B6).
 - `docs/decisao-hash-senha.md` — precedente de 🔒: decisão do app tomada, servidor pendente.
 - `CLAUDE.md` §4.11 (store efêmero consumido uma vez), §4.8 (entrada não confiável), §5.8 (um jeito
-  só de fazer cada coisa), §9 D7.
+  só de fazer cada coisa), §7.4 (registro do D7).
 - `react-native-webview`: props `injectedJavaScriptBeforeContentLoaded`, `injectJavaScript`,
   `onMessage`, `originWhitelist`, `onShouldStartLoadWithRequest`, `sharedCookiesEnabled`,
   `thirdPartyCookiesEnabled`, `incognito` — **conferir na versão que 🔒 B5 instalar**; as ressalvas

@@ -440,18 +440,26 @@ conhecida (`analise §3.1`).
   `try/catch`: o disco pode estar velho ou corrompido.
 - Chave por usuário (`empresas:<userCode>`), nunca uma global — o aparelho é compartilhado.
 
-### 4.11 Retorno de uma rota para a anterior — store efêmero consumido uma vez
+### 4.11 Dado entre rotas — store efêmero consumido uma vez
 
-Referência: `src/features/liberacoes/stores/bordero-retorno.store.ts`
+Referências: `src/features/liberacoes/stores/bordero-retorno.store.ts` (volta) e
+`bordero-abertura.store.ts` (ida).
 
-O Expo Router não devolve valor para a tela que navegou. Quando a tela de destino produz um
-resultado, ele é publicado num store **não persistido** e consumido uma única vez pelo dono:
+O Expo Router não devolve valor para a tela que navegou, e **parâmetro de rota é URL**: entra no
+histórico e não é lugar de dado de ninguém. Nos dois sentidos o payload vai por um store **não
+persistido**, consumido uma única vez pelo dono:
 
 - quem produz chama `publicar(payload)` com o payload já validado por schema;
-- quem espera chama `consumir(id)`, que só devolve se o `id` for o que ele mesmo abriu e limpa
-  o store na leitura — assim o resultado não é aplicado duas vezes;
-- nada de concatenar dado em URL (`delphi://<json>` do original, `analise §7.1.9`) nem de
-  guardar o retorno numa variável de módulo.
+- quem espera chama `consumir(chave)`, que só devolve se a chave for a que ele mesmo abriu e
+  limpa o store na leitura — assim o payload não é aplicado duas vezes. A chave é o que
+  identifica o dono em cada sentido: na volta a `sequencia` do borderô, na ida o `sistema` da
+  rota web;
+- na URL fica só o parâmetro da rota (`sistema`, `id`). Nada de concatenar dado em URL
+  (`delphi://<json>` do original, `analise §7.1.9`), nem texto livre do usuário como parâmetro,
+  nem variável de módulo guardando o retorno.
+
+O par de stores do borderô é o modelo: um por sentido, o mesmo formato nos dois. Se um sentido
+novo aparecer, ele copia esse par — não inventa um terceiro jeito (§5.8).
 
 ---
 
@@ -595,13 +603,15 @@ Precisam de resposta do time antes de fechar as telas correspondentes.
    levantadas, com recomendação e comparação, em
    [`docs/decisao-webview-sessao.md`](docs/decisao-webview-sessao.md) — **a decisão do time ainda
    não foi tomada**.
-   **Entra aqui também o contrato de parâmetros do atalho de borderô** (revisão do Bloco C, D7):
-   `analise-liberacao.tsx` já empurra `sequencia` **e o texto livre de resposta do usuário**
-   como parâmetro de URL para `(app)/web/[sistema]` — mesma classe de problema do JWT no
-   fragmento. Decidir os dois juntos, antes de abrir o Bloco D, em vez de herdar `resposta`
-   na URL. Enquanto o contêiner é placeholder, o caminho de volta
-   (`useBorderoRetornoStore.publicar()` → `useRetornoBordero` → `decisaoDoBordero`) existe
-   sem produtor: é a ordem do plano, não código morto.
+   **O D7 (revisão do Bloco C) tinha duas metades, e a do app foi fechada.** A ida da análise
+   para a rota web não passa mais pela URL: `analise-liberacao.tsx` publica sistema, sequência e
+   resposta em `bordero-abertura.store.ts`, validados por `borderoAberturaSchema`, e o
+   `router.push` leva **só** `sistema` — o texto livre do usuário deixou de existir como
+   parâmetro de rota (§4.11). **Continua em aberto** a outra metade: como sessão _e_ contexto
+   chegam ao HTML dentro da WebView, que é justamente o objeto desta decisão — a recomendação
+   do documento é um payload único por `postMessage`, sem nada na URL. Enquanto o contêiner é
+   placeholder, os dois canais existem com uma ponta só — `consumir` da ida sem chamador,
+   `publicar` da volta sem produtor: é a ordem do plano, não código morto.
 5. **Reserva da liberação.** O servidor aceita reservar algo que já está `'1'` com outro
    usuário, e não há TTL: a trava é fictícia (`analise §7.1.2`, `§7.1.4`). O app não corrige
    isso sozinho.

@@ -14,11 +14,18 @@ import { Screen } from '@/shared/components/ui/screen';
  * NÃO passar o JWT no fragmento da URL como o app original faz — ele fica no
  * histórico e no cache da WebView (docs/analise §7.1.9).
  *
- * Aberto pela análise de uma liberação de borderô (plano C2), recebe
- * `sequencia` e `resposta` por parâmetro e, ao fechar, devolve o resultado
- * validado por `borderoRetornoSchema` para
- * `useBorderoRetornoStore.publicar()` — é de lá que a análise lê a situação
- * (`S`/`P`/`N`/vazio). O app não recalcula essa situação em lugar nenhum.
+ * Aberto pela análise de uma liberação de borderô (plano C2). O contexto de
+ * abertura (`sequencia` + texto de resposta) **não** vem por parâmetro: na URL
+ * só existe `sistema`, e o resto sai de
+ * `useBorderoAberturaStore.consumir(sistema)` — o par de ida do canal de volta
+ * (CLAUDE.md §4.11). Ao fechar, devolve o resultado validado por
+ * `borderoRetornoSchema` para `useBorderoRetornoStore.publicar()` — é de lá que
+ * a análise lê a situação (`S`/`P`/`N`/vazio). O app não recalcula essa
+ * situação em lugar nenhum.
+ *
+ * Enquanto isto é placeholder o `consumir` não tem chamador, do mesmo jeito que
+ * o `publicar` do retorno não tem produtor: é a ordem do plano, não código
+ * morto.
  */
 export default function WebSystemScreen() {
   const { sistema } = useLocalSearchParams<{ sistema: string }>();
