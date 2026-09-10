@@ -57,3 +57,6 @@ yarn-error.*
 *serviceaccount*.json
 *-adminsdk-*.json
 fcm-*.json
+
+# Payloads brutos do probe do Orion (dado real de cliente — nunca versionar)
+.probe-orion/

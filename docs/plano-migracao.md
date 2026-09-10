@@ -39,7 +39,7 @@ ponta a ponta.
 ## 2. Ordem de migração
 
 ```
-Fase 0  destravar    ── decisões 🔒 + react-native-webview        (paralelo a tudo)
+Fase 0  destravar    ── decisões 🔒 (B5 e B6 fechados em 10/09/2026)  (paralelo a tudo)
    │
 Fase 1  BLOCO A      ── documento → conexão → login → registro/licença → empresa
    │
@@ -416,10 +416,31 @@ inclusive com typo no nome de duas units (§7.3.27).
 | Requisição de Compra   | `reqcompras`  | `TFrmReqComprasWeb` |
 | Autorizador Financeiro | `autorizador` | `TFrmWebSystems`    |
 
-|           |                                                                                                   |
-| --------- | ------------------------------------------------------------------------------------------------- |
-| API       | `GET /v2/htmlresponse/<sistema>/index.html`                                                       |
-| Bloqueios | 🔒 B2 (nativo vs. web) · 🔒 B5 (`react-native-webview` não instalado) · 🔒 B6 (sessão na WebView) |
+|           |                                                       |
+| --------- | ----------------------------------------------------- |
+| API       | `GET /v2/htmlresponse/<sistema>/index.html`           |
+| Bloqueios | 🔒 B2 (nativo vs. web) — B5 e B6 caíram em 10/09/2026 |
+
+**Entregue do lado do app em 10/09/2026.** `react-native-webview` instalado (`13.16.1`, a versão
+que o Expo SDK 57 fixa) e a decisão 🔒 B6 fechada na opção **A′**
+([`decisao-webview-sessao.md §13`](decisao-webview-sessao.md)): a página pede a sessão
+(`sessao:solicitar`) e o app responde com **um** payload injetado, com sessão e contexto juntos.
+Nada — nem token, nem `sequencia`, nem `resposta` — trafega em URL.
+
+O que existe agora:
+
+| Arquivo                                               | Papel                                                                               |
+| ----------------------------------------------------- | ----------------------------------------------------------------------------------- |
+| `features/web-systems/lib/sistemas-web.ts`            | catálogo dos quatro sistemas (título, URL, origem) — é dele que o menu tira a lista |
+| `features/web-systems/lib/sessao-web.ts`              | recorte de sessão por sistema e o script de injeção                                 |
+| `features/web-systems/schemas/mensagem-web.schema.ts` | união discriminada do que **chega** pela ponte, com versão de contrato              |
+| `features/web-systems/hooks/use-handshake-web.ts`     | o handshake: responde, trava a origem e detecta página que não implementa           |
+| `features/web-systems/components/web-system-view.tsx` | a WebView e os avisos de falha                                                      |
+| `src/app/(app)/web/[sistema].tsx`                     | a rota: liga `liberacoes` (contexto e retorno) a `web-systems` (transporte)         |
+
+**Falta o lado de fora do app:** o HTML precisa expor `window.__teoremaInit`, mandar
+`sessao:solicitar` e parar de ler `location.hash` (pauta fechada em §13.5 do documento). Até lá a
+tela abre, carrega a página e, em 5 s sem handshake, avisa — sem cair para a URL como plano B.
 
 **Preservar** — o conjunto de parâmetros que cada sistema espera (`autcompras`/`autcotacao`:
 `baseUrl, token, userId, companyId, codeCompany, userCode`; `reqcompras`: `baseUrl, token, userId`);
@@ -429,20 +450,20 @@ saída com `{ situacao, resposta }` — o contrato já existe do lado da libera�
 
 **Corrigir**
 
-- **JWT fora do fragmento da URL** (§7.1.9): no fragmento ele fica no histórico e no cache da WebView.
-  Definir o mecanismo em 🔒 B6 (`injectedJavaScriptBeforeContentLoaded` + `postMessage`, ou header /
-  cookie de sessão) **antes** de escrever a tela.
-- Uma ponte só, tipada, com schema Zod validando o payload que volta do HTML — não `delphi://<json>`
-  concatenado com string.
-- `app://menu` e `delphi://` viram **um** contrato de mensagem; sem dois protocolos para a mesma coisa
-  (`§5` de Clean Code no CLAUDE.md: um jeito só de fazer cada coisa).
-- O `_t=<unix>` que o original anexa à URL para forçar recarga é sintoma de o HTML não reagir à mudança
-  de deep link: registrar como pendência do web system, não como truque permanente no app.
+- **JWT fora do fragmento da URL** ✅ (§7.1.9): resolvido pelo handshake da opção A′ — a sessão vai
+  por `injectJavaScript` depois de a página pedir, e na URL fica só o caminho do HTML.
+- Uma ponte só, tipada, com schema Zod validando o payload que volta do HTML ✅
+  (`mensagem-web.schema.ts`) — não `delphi://<json>` concatenado com string.
+- `app://menu` e `delphi://` viraram **um** contrato de mensagem ✅ (`bordero:retorno` e
+  `navegacao:fechar`); sem dois protocolos para a mesma coisa (`§5` de Clean Code no CLAUDE.md).
+- O `_t=<unix>` **não entrou** ✅: recarregar a página refaz o handshake sozinho, que era exatamente
+  o que o remendo forçava.
 - A regra de situação final do borderô (`S`/`N`/`P`) está escrita **três vezes** hoje — app, servidor e
   HTML (§7.3.21). No app novo ela existe **zero** vezes: o app só repassa o que o web devolve.
 
-**Pronto quando** — os quatro itens abrem pela mesma rota, a sessão não trafega no fragmento, voltar
-fecha a WebView, e o retorno do `autorizador` alimenta a decisão da liberação de origem.
+**Pronto quando** — os quatro itens abrem pela mesma rota ✅, a sessão não trafega no fragmento ✅,
+voltar fecha a WebView ✅, e o retorno do `autorizador` alimenta a decisão da liberação de origem
+🟨 (o caminho existe ponta a ponta no app; só fecha quando o HTML publicar `bordero:retorno`).
 
 ---
 
@@ -523,9 +544,12 @@ Repetem as **Decisões em aberto** do `CLAUDE.md §7`, aqui amarradas ao bloco q
 | B2  | Nativo ou web para compras e borderô                                                                                 | Bloco D        | Se a decisão for nativo, as telas 14–17 mudam de natureza e o Bloco D é reescrito                        |
 | B3  | Reserva real da liberação (situação `'1'` + TTL)                                                                     | C2             | A trava de concorrência segue fictícia; o app não pode prometer exclusividade                            |
 | B4  | Código de erro estável no servidor                                                                                   | A2, A4, C2, F3 | Mapeamento de erro continua frágil, ainda que isolado num módulo                                         |
-| B5  | `react-native-webview`                                                                                               | Bloco D        | Dependência ainda não instalada                                                                          |
-| B6  | Mecanismo de sessão na WebView. [`decisao-webview-sessao.md`](decisao-webview-sessao.md)                             | Bloco D        | Escrever a tela antes da decisão significa reintroduzir o JWT no fragmento                               |
 | B7  | Caminho de push: FCM (Android) × APNs (iOS). [`decisao-push.md`](decisao-push.md)                                    | Bloco E        | Push funciona só em uma das plataformas                                                                  |
 
-**Ordem de ataque sugerida:** B1 agora (trava tudo) → B4 e B3 durante o Bloco C → B2, B5 e B6 antes de
-abrir o Bloco D → B7 antes do Bloco E.
+**Baixados:** 🔒 B5 (`react-native-webview` instalado em `13.16.1`) e 🔒 B6 (sessão na WebView —
+decidida na opção A′ e implementada) saíram da lista em 10/09/2026. O que restou no Bloco D não é
+bloqueio de servidor: é combinar o contrato de mensagem com quem mantém o HTML
+([`decisao-webview-sessao.md §13.5`](decisao-webview-sessao.md)).
+
+**Ordem de ataque sugerida:** B1 agora (trava tudo) → B4 e B3 durante o Bloco C → B2 antes de
+fechar o Bloco D → B7 antes do Bloco E.

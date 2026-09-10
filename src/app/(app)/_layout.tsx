@@ -24,7 +24,10 @@ export default function AppLayout() {
         <Stack.Screen name="liberacoes/[id]/index" options={{ title: 'Análise' }} />
         <Stack.Screen name="liberacoes/[id]/cliente" options={{ title: 'Dados do cliente' }} />
         <Stack.Screen name="notificacoes" options={{ title: 'Notificações' }} />
-        <Stack.Screen name="web/[sistema]" options={{ headerShown: false }} />
+        {/* O título real é o do sistema aberto, e quem o define é a própria
+            rota. O cabeçalho fica visível de propósito: sem ele, uma página que
+            não implemente `navegacao:fechar` prenderia o usuário na WebView. */}
+        <Stack.Screen name="web/[sistema]" options={{ title: 'Web system' }} />
       </Stack>
     </>
   );

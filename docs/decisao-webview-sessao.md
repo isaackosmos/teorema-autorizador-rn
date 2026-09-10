@@ -1,21 +1,26 @@
 # Decisão B6 — sessão dentro da WebView
 
-> **Status:** **opções levantadas; decisão do time pendente.** Nada do mecanismo de sessão foi
-> implementado — nem a dependência existe ainda (🔒 B5).
-> **Trava:** `CLAUDE.md §7.4` · `docs/plano-migracao.md` bloqueio 🔒 B6 (Bloco D, telas 14–17).
+> **Status:** **DECIDIDA e IMPLEMENTADA em 10/09/2026 — opção A′ (handshake por `postMessage`).**
+> A decisão e o contrato estão em [§13](#13-decisão-final--10092026); o que o app já faz, em
+> [§14](#14-implementação--10092026). §3 a §7 ficam como o histórico que levou à escolha.
+> **Trava:** era `CLAUDE.md §7.4` · `docs/plano-migracao.md` 🔒 B6 (Bloco D, telas 14–17) — **B6 sai
+> da lista de bloqueios**. O que resta não é decisão: é a combinação com quem mantém o HTML (§13.5).
 > **Escopo:** este documento decide **como a sessão chega ao HTML** e, no mesmo contrato, como o
 > **contexto do borderô** (`sequencia` + `resposta`) chega lá — o desvio D7 anotado na revisão do
-> Bloco C. Não decide 🔒 B2 (nativo × web) nem 🔒 B5 (instalar `react-native-webview`): as duas
-> opções abaixo pressupõem que a resposta de B2 é **web**.
+> Bloco C. Não decide 🔒 B2 (nativo × web) nem 🔒 B5 (instalar `react-native-webview`): a decisão
+> pressupõe que a resposta de B2 é **web**.
 >
 > **Atualização de 04/09/2026 — a metade do D7 que era só do app já foi corrigida**, sem esperar a
 > decisão: a ida da análise para a rota `web/[sistema]` passou para o
-> `bordero-abertura.store.ts` e na URL sobrou só `sistema` (§2.2, §7b). O que continua em aberto
-> aqui é a travessia app → HTML, para a sessão **e** para esse contexto.
+> `bordero-abertura.store.ts` e na URL sobrou só `sistema` (§2.2, §7b). A travessia app → HTML, para
+> a sessão **e** para esse contexto, é o que §13 fecha.
 
 ---
 
 ## 1. Recomendação em uma frase
+
+> **Aceita em 10/09/2026.** Decisão, justificativa contra o estado do repo e contrato de
+> mensagem em [§13](#13-decisão-final--10092026).
 
 **Handshake por `postMessage`** — a página anuncia que está pronta, o app responde com **um** payload
 tipado contendo sessão _e_ contexto — porque é a única opção que fecha B6 **e** a metade (a) do D7
@@ -385,6 +390,9 @@ borderô chega pelo store de ida, consumido pela **rota**, que é quem pode fala
 
 ## 11. Perguntas que precisam de resposta humana
 
+Situação de cada uma depois da decisão em §13.2 — **só a 2 continua pendente**, e é a
+dependência de entrega do Bloco D.
+
 1. 🔒 B2: web ou nativo? Tudo aqui pressupõe web.
 2. Quem mantém o HTML dos quatro web systems, e há disposição para expor `__teoremaInit` e o
    `sessao:solicitar`? **É a dependência crítica de A′** — sem ela, nenhuma opção que tire a sessão
@@ -400,7 +408,7 @@ borderô chega pelo store de ida, consumido pela **rota**, que é quem pode fala
 
 - `docs/analise-app-original.md` §5.3 (fragmento, `app://menu`, `delphi://`, `_t=<unix>`), §7.1 (JWT
   no fragmento), §7.3.21 (três forms idênticos e a regra `S`/`N`/`P` triplicada).
-- `docs/plano-migracao.md` — Bloco D e §6 (🔒 B2, B5, B6).
+- `docs/plano-migracao.md` — Bloco D e §6 (🔒 B2 e B5; B6 baixado em 10/09/2026 por §13).
 - `docs/decisao-hash-senha.md` — precedente de 🔒: decisão do app tomada, servidor pendente.
 - `CLAUDE.md` §4.11 (store efêmero consumido uma vez), §4.8 (entrada não confiável), §5.8 (um jeito
   só de fazer cada coisa), §7.4 (registro do D7).
@@ -408,3 +416,275 @@ borderô chega pelo store de ida, consumido pela **rota**, que é quem pode fala
   `onMessage`, `originWhitelist`, `onShouldStartLoadWithRequest`, `sharedCookiesEnabled`,
   `thirdPartyCookiesEnabled`, `incognito` — **conferir na versão que 🔒 B5 instalar**; as ressalvas
   de plataforma do §3.1 são premissa de projeto, ainda não verificadas neste repo.
+
+---
+
+## 13. Decisão final — 10/09/2026
+
+**Escolhida a opção A′: handshake por `postMessage`.** A página anuncia que está pronta, o app
+responde com **um** payload tipado contendo sessão _e_ contexto. Nada — nem token, nem `sequencia`,
+nem `resposta` — trafega em URL, query ou fragmento. **C (ticket de uso único) permanece como alvo**
+quando houver frente aberta no Orion; a migração é do transporte, o contrato de dados de §13.3 não
+muda.
+
+Com isso **🔒 B6 sai da lista de bloqueios** do `plano-migracao.md §6` e do `CLAUDE.md §7`. O Bloco D
+continua parado em 🔒 B2 e 🔒 B5, e na combinação com quem mantém o HTML (§13.5) — que é dependência
+de entrega, não decisão em aberto.
+
+### 13.1 Por que A′ continua sendo a melhor — conferido no repo em 10/09/2026
+
+| Evidência no repositório                                                                                              | O que ela decide                                                                                                                                                          |
+| --------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `src/app/(app)/web/[sistema].tsx` segue placeholder, e o comentário de cabeçalho já descreve A′ ponta a ponta         | nenhuma linha de transporte foi escrita ainda — a decisão não custa retrabalho, e o arquivo já está preparado para ela                                                    |
+| `bordero-abertura.store.ts` existe, com `consumir(sistema)` **sem chamador**                                          | a única ponta que falta é a rota web. Com A′ ela alimenta `contexto` direto; com B o store perde a razão de existir e o contexto volta para a query — contra §4.11 e §5.8 |
+| `bordero-retorno.store.ts` é o espelho, com `publicar` **sem produtor**                                               | os dois sentidos fecham na **mesma** ponte `onMessage`/`injectJavaScript`: um mecanismo, não dois                                                                         |
+| `borderoAberturaSchema` e `borderoRetornoSchema` já tipados, `resposta` reaproveitando `decisaoSchema.shape.resposta` | o payload de A′ não inventa contrato: só falta `mensagem-web.schema.ts` (união das mensagens) e `sessao-web.ts` (recorte por sistema)                                     |
+| 🔒 B1 continua travado no servidor — o login **nunca** rodou contra um Orion real (`CLAUDE.md §6`, ressalva)          | confirma o fato 2.3.4 na prática: opção que dependa do Orion (B ou C) não destrava o Bloco D no prazo do Bloco D                                                          |
+
+Nada mudou desde 04/09 que enfraqueça A′ — e a metade (b) do D7, já fechada, **torna A′ mais barata
+do que era quando o documento foi escrito**: o contexto já chega à rota web tipado e validado, basta
+repassá-lo no payload do handshake.
+
+O contra conhecido continua de pé e é aceito conscientemente: **o token fica legível em JavaScript
+dentro da página**. É o preço de não depender do Orion, e é exatamente o que C resolve.
+
+### 13.2 Perguntas de §11 — como ficam
+
+| #   | Pergunta                            | Situação                                                                                                                      |
+| --- | ----------------------------------- | ----------------------------------------------------------------------------------------------------------------------------- |
+| 1   | 🔒 B2 web ou nativo                 | **pressuposto: web.** B2 continua formalmente aberta; se virar nativo, este documento vira histórico                          |
+| 2   | Quem mantém o HTML, e há disposição | **continua pendente — é a dependência crítica.** §13.5 é a pauta dessa conversa                                               |
+| 3   | Frente aberta no Orion              | não há; é o que sustenta A′ agora                                                                                             |
+| 4   | Tenant sempre HTTPS                 | segue sem resposta. Deixa de decidir B, mas continua valendo pelo 🔒 B1 (senha em texto puro sobre TLS)                       |
+| 5   | Rodar A′ e migrar para C depois     | **sim.** É a decisão. O HTML pode suportar os dois por um período: o `sessao:init` de §13.3 não muda, muda quem monta o token |
+
+### 13.3 Contrato de mensagem (v1)
+
+Duas pontes, uma para cada sentido, e **um** formato:
+
+- **HTML → app:** `window.ReactNativeWebView.postMessage(<string JSON>)`, lido em `onMessage`.
+- **app → HTML:** `ref.current?.injectJavaScript(...)`, chamando uma função que o HTML expõe.
+
+Toda mensagem é um objeto JSON UTF-8 com o mesmo envelope:
+
+```json
+{ "v": 1, "tipo": "<nome>" }
+```
+
+...mais os campos próprios daquela mensagem.
+
+- `v` — inteiro, hoje sempre `1`. Mensagem com `v` diferente do esperado é **descartada em silêncio**
+  pelas duas pontas; é o que permite subir uma v2 sem quebrar app instalado.
+- `tipo` — discriminante da união Zod em `features/web-systems/schemas/mensagem-web.schema.ts`.
+- Campo desconhecido é ignorado (comportamento padrão do Zod, sem `passthrough`).
+
+Quatro mensagens, e só quatro:
+
+| Sentido    | `tipo`             | Carga                   |
+| ---------- | ------------------ | ----------------------- |
+| HTML → app | `sessao:solicitar` | —                       |
+| app → HTML | `sessao:init`      | `{ sessao, contexto? }` |
+| HTML → app | `bordero:retorno`  | `{ retorno }`           |
+| HTML → app | `navegacao:fechar` | —                       |
+
+#### `sessao:solicitar` — HTML → app
+
+```json
+{ "v": 1, "tipo": "sessao:solicitar" }
+```
+
+Mandada **uma vez por carga do documento**, assim que `window.__teoremaInit` existir — e de novo em
+todo reload ou navegação interna que reinicialize o JS da página. Sem carga: quem sabe qual é o
+sistema, a sessão e o contexto é o app.
+
+É este handshake que mata o `_t=<unix>` do original (`analise §5.3`): recarregar refaz a sessão
+sozinho, não precisa de URL nova para forçar o `init()`.
+
+#### `sessao:init` — app → HTML
+
+Não vai pela ponte de string: vai como chamada de função injetada.
+
+```ts
+const literal = JSON.stringify(JSON.stringify(payload))
+  .replace(/\u2028/g, '\\u2028')
+  .replace(/\u2029/g, '\\u2029');
+
+ref.current?.injectJavaScript(`window.__teoremaInit(JSON.parse(${literal})); true;`);
+```
+
+O **duplo `JSON.stringify`** é obrigatório, não estilo: o de dentro monta o JSON, o de fora o
+transforma em literal de string JavaScript, e é ele que neutraliza aspas e barras invertidas vindas
+de `resposta`, que é texto livre do usuário (§9). `U+2028`/`U+2029` escapam à parte porque
+`JSON.stringify` os deixa passar crus. O `true;` final evita o erro de valor de retorno não
+serializável no iOS.
+
+`payload`:
+
+```json
+{
+  "v": 1,
+  "tipo": "sessao:init",
+  "sessao": {
+    "baseUrl": "https://tenant.exemplo.com.br",
+    "token": "<JWT>",
+    "userId": "123",
+    "companyId": "1",
+    "codeCompany": "0001",
+    "userCode": "ABC"
+  },
+  "contexto": { "sequencia": "45678", "resposta": "" }
+}
+```
+
+- **Todos os valores são `string`.** Nada de número, nada de `null`: campo que não se aplica **não
+  aparece**.
+- **`sessao` é recortada por sistema** (fato 2.3.3), em `features/web-systems/lib/sessao-web.ts`.
+  Mandar campo a mais é vazamento sem contrapartida:
+
+  | `sistema`     | Campos de `sessao`                                                   |
+  | ------------- | -------------------------------------------------------------------- |
+  | `autcompras`  | `baseUrl`, `token`, `userId`, `companyId`, `codeCompany`, `userCode` |
+  | `autcotacao`  | idem                                                                 |
+  | `autorizador` | idem                                                                 |
+  | `reqcompras`  | `baseUrl`, `token`, `userId`                                         |
+
+- **`contexto` é opcional** e só existe quando a rota foi aberta pela análise de um borderô — ou
+  seja, `sistema === 'autorizador'` **e** havia payload em `bordero-abertura.store.ts`. Abrir o
+  `autorizador` pelo menu chega sem `contexto`; os outros três nunca têm. **O HTML precisa tratar as
+  duas formas** — é a diferença entre "autorize este borderô" e "abra o autorizador".
+- `contexto.sequencia` vem do payload (`borderoSequencia`), nunca de label (`analise §7.1.7`).
+  `contexto.resposta` é o texto livre já digitado na análise e pode ser `""`.
+
+**`__teoremaInit` tem de ser idempotente.** Pode ser chamada mais de uma vez na mesma página (novo
+handshake, retry); a última chamada substitui a sessão anterior.
+
+#### `bordero:retorno` — HTML → app
+
+```json
+{
+  "v": 1,
+  "tipo": "bordero:retorno",
+  "retorno": { "sequencia": "45678", "situacao": "S", "resposta": "aprovado com ressalva" }
+}
+```
+
+- `retorno` é exatamente o `borderoRetornoSchema` que já existe: `situacao` ∈ `'' | S | N | P`
+  (tolerante a minúscula e a nulo, desconhecido cai em `''`), `sequencia` coagida a string,
+  `resposta` aparada. **Quem calcula `S`/`N`/`P` é o borderô** — o app repassa e não recalcula em
+  lugar nenhum (`analise §7.3.21`).
+- **Semântica: publica _e_ fecha.** Ao receber, o app publica em `useBorderoRetornoStore` e fecha a
+  rota na mesma ação. O HTML **não** manda `navegacao:fechar` em seguida — mensagem única elimina a
+  corrida entre publicar e desmontar.
+- `retorno.sequencia` tem de ser a mesma que chegou em `contexto.sequencia`: é a chave do
+  `consumir(sequencia)` da análise (§4.11). Divergente, o app publica assim mesmo — o store filtra
+  sozinho — e registra `console.warn` (§5.4).
+
+#### `navegacao:fechar` — HTML → app
+
+```json
+{ "v": 1, "tipo": "navegacao:fechar" }
+```
+
+Fecha a rota **sem** resultado. Substitui `app://menu` e `delphi://` do original: um contrato só,
+sem dois protocolos para a mesma coisa (§5.8).
+
+### 13.4 Regras de recepção no app
+
+- **`onMessage` sempre definido**, ainda que só descarte — sem ela a ponte não existe no Android.
+- Toda mensagem passa por `JSON.parse` dentro de `try/catch` e depois por
+  `mensagemWebSchema.safeParse`; o que não casar é **descartado em silêncio**. A WebView é entrada
+  não confiável, igual à rede e ao disco (§4.8).
+- O app só responde `sessao:solicitar` enquanto a URL corrente é da **origem do tenant**
+  (`originWhitelist` + `onShouldStartLoadWithRequest`, §9). Fora dela, descarta sem responder — é o
+  que impede injetar sessão em página estranha.
+- **O contexto é consumido uma vez, no mount.** `consumir(sistema)` limpa o store na leitura (§4.11),
+  então a rota guarda o resultado em `useRef` e responde **todo** handshake a partir dele. Consumir
+  dentro do `onMessage` perderia o contexto no primeiro reload da página — este é o erro fácil de
+  cometer na implementação.
+- A sessão do payload é lida da sessão persistida no momento de responder, não congelada no mount.
+- **Sem handshake, sem plano B na URL.** Se não chegar `sessao:solicitar` em ~5 s depois do
+  `onLoadEnd`, a tela mostra estado de erro com "tentar de novo" (recarrega a WebView). Nunca
+  acrescentar parâmetro à URL como alternativa.
+- Avaliar `cacheEnabled={false}` / `incognito` na rota (§9).
+
+### 13.5 O que precisa ser combinado com quem mantém o HTML
+
+Pauta fechada da conversa que é a dependência crítica (pergunta 2 de §11):
+
+1. expor `window.__teoremaInit(payload)` e mandar `sessao:solicitar` assim que ela existir;
+2. **parar de ler `location.hash`** — o fragmento deixa de existir, e o `_t=<unix>` some junto;
+3. **não guardar `token`** em `localStorage`, `sessionStorage` nem cookie próprio: a sessão vive na
+   memória da página e morre com ela;
+4. tratar `contexto` **ausente** (autorizador aberto pelo menu, e os outros três sistemas);
+5. devolver `bordero:retorno` uma vez, com a `sequencia` que recebeu, e não mandar `navegacao:fechar`
+   depois;
+6. `postMessage` só com string JSON, sempre com `v` e `tipo`.
+
+Enquanto o HTML só souber ler o fragmento, **não se convive com os dois**: ou a página é atualizada
+junto, ou o Bloco D espera (§3.4).
+
+### 13.6 O que esta decisão **não** fecha
+
+- 🔒 **B2** (nativo × web) e 🔒 **B5** (`react-native-webview` não instalado) continuam de pé — são
+  os dois bloqueios que sobram no Bloco D.
+- **Opção C** fica registrada como pendência de servidor, junto de 🔒 B3 e 🔒 B4: é a forma correta,
+  que o app hoje não pode implementar sozinho.
+- O comportamento de `injectedJavaScriptBeforeContentLoaded` no Android (§3.1) segue **a verificar**
+  na versão que 🔒 B5 instalar. A escolha de A′ dispensa a garantia; a verificação só diz se o
+  `window.__TEOREMA_SESSION__` direto é atalho legítimo em alguma tela.
+- Os arquivos de §10 continuam sendo o mapa da implementação: nenhum deles foi escrito nesta decisão.
+
+---
+
+## 14. Implementação — 10/09/2026
+
+O app cumpre a sua metade do contrato de §13.3. Falta a do HTML (§13.5).
+
+### 14.1 O que foi escrito
+
+| Arquivo                                               | Papel                                                                                       |
+| ----------------------------------------------------- | ------------------------------------------------------------------------------------------- |
+| `features/web-systems/lib/sistemas-web.ts`            | catálogo dos quatro sistemas: título, URL do HTML, origem do tenant e o guarda de `sistema` |
+| `features/web-systems/lib/sessao-web.ts`              | recorte de `sessao` por sistema, montagem do `sessao:init` e o script de injeção            |
+| `features/web-systems/schemas/mensagem-web.schema.ts` | união discriminada do que **chega**, com `v` de versão e descarte silencioso                |
+| `features/web-systems/hooks/use-handshake-web.ts`     | responde ao handshake, trava a origem, detecta página que não pede a sessão                 |
+| `features/web-systems/components/web-system-view.tsx` | a WebView e os dois avisos de falha (carga e handshake)                                     |
+| `src/app/(app)/web/[sistema].tsx`                     | a rota: liga `liberacoes` (contexto e retorno) a `web-systems` (transporte)                 |
+| `src/app/(app)/_layout.tsx`                           | cabeçalho visível na rota web — sem ele, HTML sem `navegacao:fechar` prende o usuário       |
+| `src/app/(app)/menu.tsx`                              | os quatro itens saem do catálogo, não de uma lista copiada                                  |
+| `package.json`                                        | `react-native-webview@13.16.1` — a versão que o Expo SDK 57 fixa                            |
+
+O `features/web-systems/` não importa `features/liberacoes/`: o `retorno` do `bordero:retorno`
+chega como `unknown` e quem o valida com `borderoRetornoSchema` é a **rota**, que pode falar com as
+duas (`CLAUDE.md §2`, §4.12).
+
+### 14.2 Decisões de implementação que o §13 não previa
+
+- **Cabeçalho visível na rota web.** Estava `headerShown: false`. Com o handshake, a tela pode
+  legitimamente parar num aviso ("a página não pediu a sessão") — e sem cabeçalho não haveria como
+  sair dela no iOS a não ser pelo gesto. O título é o do sistema aberto.
+- **Prazo de 5 s sem handshake.** Não é espera artificial (`CLAUDE.md §5.10`): nada é adiado por
+  causa dele. É o que separa "carregando" de "esta página não implementa o contrato", e o único
+  jeito de dizer isso ao usuário em vez de mostrar tela em branco. Termina em aviso com
+  "tentar de novo", **nunca** em cair para a URL.
+- **`onError` tem aviso próprio.** Falha de carga e falha de handshake são causas diferentes e
+  mereciam mensagens diferentes; a WebView continua montada por baixo do aviso, para o
+  "tentar de novo" poder recarregar.
+- **Catálogo como fonte única.** Título e destino dos quatro sistemas ficam em
+  `sistemas-web.ts`; o menu passou a derivar dali. Antes eram duas listas, e nada impedia o menu de
+  apontar para um `sistema` que a rota não aceita.
+- **`incognito` + `cacheEnabled={false}`** entraram (§9). É o que zera resíduo entre usuários no
+  aparelho compartilhado, ao custo de o HTML não ter armazenamento que sobreviva à tela. Anotado em
+  `CLAUDE.md §9`, dívida D7, junto do risco de tenant em `http://`.
+
+### 14.3 Como verificar quando o HTML estiver pronto
+
+1. `npm install` (a dependência é nativa: **exige `npm run prebuild` e dev client novo**).
+2. Abrir cada um dos quatro itens do menu: a página carrega e **não** aparece o aviso de 5 s.
+3. No `autorizador` aberto pelo menu, o payload chega **sem** `contexto`; aberto pela análise de um
+   borderô, chega **com** `sequencia` e `resposta`.
+4. Recarregar a página dentro da WebView: a sessão volta sozinha, sem `_t=<unix>`.
+5. Decidir um borderô: `bordero:retorno` publica e fecha, e a análise aplica `S`/`P` → autoriza,
+   `N` → reprova, vazio → preserva.
+6. Conferir que nenhuma URL do histórico da WebView contém token — é o que esta decisão existe para
+   garantir.

@@ -5,6 +5,7 @@ import { ScrollView } from 'react-native';
 import { useLogoEmpresa } from '@/features/empresa/hooks/use-logo-empresa';
 import { useNotificacoesNaoLidas } from '@/features/notificacoes/hooks/use-notificacoes-nao-lidas';
 import { AvisoPush } from '@/features/push/components/aviso-push';
+import { SISTEMAS_WEB, SISTEMAS_WEB_LISTA } from '@/features/web-systems/lib/sistemas-web';
 import { AppHeader } from '@/shared/components/ui/app-header';
 import { Button } from '@/shared/components/ui/button';
 import { Screen } from '@/shared/components/ui/screen';
@@ -18,13 +19,17 @@ import type { Href } from 'expo-router';
  * Só entram itens que o usuário realmente pode abrir. O app Delphi mantinha
  * quatro itens com `Visible = False` apontando para telas nativas já
  * substituídas por web systems (docs/analise §7.2.10).
+ *
+ * Os quatro web systems saem do catálogo da feature, não de uma lista copiada:
+ * título e destino ficam em um lugar só, e o menu não pode divergir do que a
+ * rota `(app)/web/[sistema]` aceita.
  */
 const ITENS: { titulo: string; href: Href }[] = [
   { titulo: 'Liberações Remotas', href: '/(app)/liberacoes' },
-  { titulo: 'Pedidos de Compra', href: '/(app)/web/autcompras' },
-  { titulo: 'Autorização de Cotação', href: '/(app)/web/autcotacao' },
-  { titulo: 'Requisição de Compra', href: '/(app)/web/reqcompras' },
-  { titulo: 'Autorizador Financeiro', href: '/(app)/web/autorizador' },
+  ...SISTEMAS_WEB_LISTA.map((sistema) => ({
+    titulo: SISTEMAS_WEB[sistema].titulo,
+    href: { pathname: '/(app)/web/[sistema]', params: { sistema } } satisfies Href,
+  })),
 ];
 
 export default function MenuScreen() {

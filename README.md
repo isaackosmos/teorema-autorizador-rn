@@ -40,6 +40,10 @@ Os hooks de Git são instalados pelo `npm install` (Husky): `pre-commit` roda `l
 - **[`docs/plano-migracao.md`](docs/plano-migracao.md)** — blocos A–F, ordem de ataque e
   critério de pronto. É o roteiro; o placar continua na seção 6 do `CLAUDE.md`.
 - **[`docs/decisao-hash-senha.md`](docs/decisao-hash-senha.md)** — a decisão de senha do login.
+- **[`docs/decisao-webview-sessao.md`](docs/decisao-webview-sessao.md)** — como a sessão chega
+  na WebView dos web systems (bloqueio B6, em aberto).
+- **[`docs/decisao-push.md`](docs/decisao-push.md)** — quem entrega o push, FCM/APNs
+  (bloqueio B7, em aberto).
 
 ## Estado
 

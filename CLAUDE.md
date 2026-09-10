@@ -68,6 +68,28 @@ npm run typecheck && npm run lint
 O `pre-commit` cobre menos do que isso (o `lint-staged` só olha os arquivos staged) e o
 `pre-push` só roda o `typecheck` — rode os dois à mão sobre o projeto inteiro.
 
+### Probe de contrato contra um Orion real
+
+`tools/probe-orion.mjs` é o mais perto que o projeto tem de um teste de integração, e o único
+jeito de derrubar a ressalva da §6 ("nenhum ✅ confirmado com dado real"). Ele **replica o
+fluxo HTTP do app importando os schemas de `src/`** — não uma cópia deles — então um desvio de
+contrato do Orion estoura no mesmo Zod em que estouraria na tela:
+
+```bash
+node --import ./tools/ts-alias-hook.mjs tools/probe-orion.mjs \
+  --documento=00000000000000 --usuario=FULANO --senha=... [--reservar]
+```
+
+- Lê a `.env.local` para o token do central; percorre Bloco A (licença → endereços → ping →
+  bases → login → empresas) e Bloco C (fila → cliente), e grava os payloads brutos em
+  `.probe-orion/` — pasta **gitignorada**, porque é dado real de cliente.
+- **Somente leitura por padrão.** `--reservar` exercita `reserve`/`release`; autorizar e
+  reprovar ele **nunca** dispara — decisão é dinheiro e não se testa por engano.
+- Sai com código 1 se algum schema recusar payload. Não cobre renderização: bug de árvore
+  React (como o `queryState` sempre-verdadeiro da §4.6) só aparece com o app no aparelho.
+- O `--import ./tools/ts-alias-hook.mjs` é obrigatório: é ele que resolve o alias `@/` e deixa
+  o Node ler os `.ts` do app.
+
 ### Pré-requisitos de runtime
 
 Duas coisas derrubam o app antes de qualquer tela aparecer. Não são bugs — são a ordem do plano.
@@ -110,7 +132,13 @@ teorema-autorizador-rn/
 ├── docs/
 │   ├── analise-app-original.md # inventário do legado — NÃO reformatar (.prettierignore)
 │   ├── plano-migracao.md       # blocos A–F, ordem de ataque, critério de pronto
-│   └── decisao-hash-senha.md   # bloqueio B1: senha em texto puro sobre TLS
+│   ├── decisao-hash-senha.md   # bloqueio B1: senha em texto puro sobre TLS
+│   ├── decisao-webview-sessao.md # decidido: handshake postMessage; contrato em §13
+│   └── decisao-push.md         # bloqueio B7: quem entrega o push (FCM/APNs)
+│
+├── tools/                      # scripts de fora do bundle (Node puro, não entram no app)
+│   ├── probe-orion.mjs         #   replay HTTP do fluxo contra um Orion real (§1)
+│   └── ts-alias-hook.mjs       #   resolve `@/` e lê os .ts de src/ no Node
 │
 ├── src/
 │   ├── app/                    # ROTAS (Expo Router). Só composição — sem regra.
@@ -138,8 +166,9 @@ teorema-autorizador-rn/
 │   │   ├── lib/storage/        #   MMKV + adaptador do Zustand
 │   │   ├── lib/format/         #   moeda, data, cn
 │   │   ├── lib/schema/         #   peças de Zod dos payloads do Orion
+│   │   ├── lib/image/          #   blob → data URI (logo da empresa)
 │   │   ├── stores/             #   sessão (aparelho + usuário + empresa)
-│   │   ├── hooks/              #   hooks genéricos
+│   │   ├── hooks/              #   hooks genéricos (pasta vazia hoje — é o destino deles)
 │   │   └── types/              #   tipos compartilhados
 │   │
 │   └── styles/global.css       # tokens de cor (light/dark) do Tailwind
@@ -149,6 +178,10 @@ teorema-autorizador-rn/
 ├── CLAUDE.md · .env.example
 └── package.json
 ```
+
+Features hoje: `auth` · `empresa` · `liberacoes` · `notificacoes` (só as query keys e o badge
+do cabeçalho — a lista é do Bloco E) · `push` · `web-systems`. Cada uma cria só as subpastas de
+que precisa.
 
 ### Regras de dependência entre camadas
 
@@ -244,7 +277,7 @@ qualquer coisa que dependa da base do cliente é do tenant. Superfície em uso h
 
 | Cliente      | Rotas                                                                                                                                                                                                                   |
 | ------------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `centralApi` | `/v1/application/companyinformation` · `/v1/application/getserverurl` · `/v1/application/register`                                                                                                                      |
+| `centralApi` | `/v1/application/companyinformation` · `/v1/application/getserverurl` · `/v1/application/register` · `/v1/application/tokenpush`                                                                                        |
 | `tenantApi`  | `/v1/ping` · `/v1/auth/login` · `/v1/auth/setup/:documento` · `/v1/application/companyfromuser/:userCode` · `/v1/application/photocompany/:companyCode` · `/v1/remoteauthorization/*` (fila, reserva, decisão, cliente) |
 
 ### 4.2 Schema de payload — `features/<feature>/schemas/<x>.schema.ts`
@@ -273,13 +306,24 @@ terceiro uso (`cliente.schema.ts`) o levou para `shared/lib/schema/orion.ts`.
 Hierárquicas, para invalidar por prefixo:
 
 ```ts
+/** Raiz da feature. Fora deste arquivo ninguém monta array de key à mão. */
+const RAIZ = ['liberacoes'] as const;
+
 export const liberacoesKeys = {
-  all: ['liberacoes'] as const,
-  pendentes: (userCode: string) => [...liberacoesKeys.all, 'pendentes', userCode] as const,
+  all: RAIZ,
+  fila: [...RAIZ, 'pendentes'] as const,
+  pendentes: (userCode: string) => [...liberacoesKeys.fila, userCode] as const,
+  credito: (empresa: string, cliente: string) =>
+    [...liberacoesKeys.all, 'credito', empresa, cliente] as const,
 };
 ```
 
 Nunca escreva um array de key literal dentro de um hook ou de uma tela.
+
+**Crie o prefixo intermediário antes de precisar dele.** `all` cobre _todas_ as sub-keys:
+invalidar por ele depois de uma decisão refaz também a análise de crédito e o histórico de
+compras de todo cliente em cache. `fila` existe para que quem só quer atualizar a lista — o
+roteamento de push — invalide estreito (§9, dívida D5).
 
 ### 4.4 Hook de leitura — `features/<feature>/hooks/use-<coisa>.ts`
 
@@ -403,6 +447,10 @@ servidor é do TanStack Query — nunca copie a resposta de uma query para dentr
   que complete com o valor vazio (`session.store.ts`) ou revalide o disco por schema
   (`historico-usuarios.store.ts`). Disco é entrada não confiável, igual à rede.
 - **Nunca persista senha.**
+- **Nem todo store vai para o disco, e isso é decisão — deixe o porquê escrito no arquivo.**
+  Não persista o que o sistema operacional já é dono (`estado-push.store.ts`: a permissão de
+  notificação muda fora do app, e restaurar do disco seria repetir uma resposta velha como se
+  fosse a atual) nem payload de consumo único (`bordero-abertura` / `bordero-retorno`, §4.11).
 
 Tudo mora numa instância única de MMKV (`shared/lib/storage/mmkv.ts`). Chave de `persist` é o
 nome do store em kebab-case; chave escrita à mão é `dominio:identificador`. O inventário
@@ -416,8 +464,9 @@ completo — é ele que responde "por que esse dado sobreviveu ao logout":
 
 ### 4.9 Estilo com NativeWind
 
-Só `className`, nunca `StyleSheet.create` nem objeto de estilo inline — a única exceção no
-projeto é `style={{ flex: 1 }}` no `GestureHandlerRootView`, que exige estilo real.
+Só `className`, nunca `StyleSheet.create` nem objeto de estilo inline. As duas exceções do
+projeto são `style={{ flex: 1 }}` no `GestureHandlerRootView` e na `WebView` de
+`web-system-view.tsx`: componente de terceiro não passa pelo NativeWind e exige estilo real.
 
 - Use os **tokens semânticos** do `tailwind.config.js` (`bg-surface`, `text-muted`,
   `text-aprovado`, `bg-primary`), nunca a cor crua (`bg-blue-500`).
@@ -460,6 +509,25 @@ persistido**, consumido uma única vez pelo dono:
 
 O par de stores do borderô é o modelo: um por sentido, o mesmo formato nos dois. Se um sentido
 novo aparecer, ele copia esse par — não inventa um terceiro jeito (§5.8).
+
+### 4.12 Duas features que precisam conversar — composição na rota
+
+Referências: `src/app/(app)/_layout.tsx` (`PushDaAreaAutenticada`) +
+`src/features/liberacoes/hooks/use-invalidar-fila.ts`
+
+Feature não importa feature (§2) — e hoje nenhuma importa. Quando uma precisa disparar algo na
+outra, **quem liga as duas é a rota**:
+
+- quem **recebe** expõe um hook-callback como contrato público
+  (`useInvalidarFila(): () => void`), sem saber quem chama nem que tela está montada;
+- quem **dispara** recebe esse callback por parâmetro
+  (`useRoteamentoPush({ atualizarPorTipo })`), sem importar nada da outra feature;
+- o `_layout` da área junta os dois num componente que devolve `null`. Ele existe separado do
+  layout para que os hooks rodem **depois** das guardas de sessão: registrar aparelho e navegar
+  por notificação são coisas de quem já está dentro.
+
+O callback exposto invalida o prefixo **estreito** da feature (§4.3), nunca a raiz: quem está de
+fora não deve conseguir derrubar mais cache do que pediu.
 
 ---
 
@@ -520,10 +588,19 @@ Legenda: ⬜ pendente · 🟨 em andamento · ✅ concluído
 | 11  | Dados do cliente                              | `(app)/liberacoes/[id]/cliente` | `TFrmLiberacoes` › `TabItemDetalhesCliente` | ✅¹ crédito e títulos em duas queries com schema; campo sem valor não vira linha         |
 | 12  | Feedback da decisão                           | (parte de #10)                  | `TabItemFeedbackAceito` / `Recusado`        | ✅¹ um componente para as duas decisões, sem espera artificial antes de voltar           |
 | 13  | Notificações                                  | `(app)/notificacoes`            | `TFrmNotificacao`                           | ⬜                                                                                       |
-| 14  | Web system — Pedidos de Compra                | `sistema=autcompras`            | `TFrmAutComprasWeb`                         | ⬜                                                                                       |
-| 15  | Web system — Autorização de Cotação           | `sistema=autcotacao`            | `TFrmAutCotacaoWeb`                         | ⬜                                                                                       |
-| 16  | Web system — Requisição de Compra             | `sistema=reqcompras`            | `TFrmReqComprasWeb`                         | ⬜                                                                                       |
-| 17  | Web system — Autorizador Financeiro / Borderô | `sistema=autorizador`           | `TFrmWebSystems`                            | ⬜                                                                                       |
+| 14  | Web system — Pedidos de Compra                | `sistema=autcompras`            | `TFrmAutComprasWeb`                         | 🟨² handshake A′ implementado; falta o HTML expor `__teoremaInit`                        |
+| 15  | Web system — Autorização de Cotação           | `sistema=autcotacao`            | `TFrmAutCotacaoWeb`                         | 🟨² idem — mesma rota, mesmo contrato                                                    |
+| 16  | Web system — Requisição de Compra             | `sistema=reqcompras`            | `TFrmReqComprasWeb`                         | 🟨² idem, com o recorte reduzido de sessão                                               |
+| 17  | Web system — Autorizador Financeiro / Borderô | `sistema=autorizador`           | `TFrmWebSystems`                            | 🟨² idem + contexto do borderô e retorno para a análise                                  |
+
+² **Bloco D entregue do lado do app em 10/09/2026**, seguindo a decisão B6 (opção A′,
+[`docs/decisao-webview-sessao.md §13`](docs/decisao-webview-sessao.md)). Uma rota para os quatro
+sistemas (`(app)/web/[sistema]`), `react-native-webview` instalado, sessão e contexto entregues
+por handshake `postMessage` — **nada na URL**. Fica 🟨, e não ✅, porque o critério de pronto
+depende de coisa que não é do app: **o HTML precisa expor `window.__teoremaInit` e mandar
+`sessao:solicitar`** (pauta em §13.5 do documento). Enquanto isso, a tela abre, carrega a página
+e mostra "a página não pediu a sessão" depois de 5 s. Verificado por `lint` + `typecheck`, nunca
+contra servidor real — vale a mesma ressalva dos outros blocos.
 
 ¹ **Bloco C (telas 9–12) fechado na revisão de 04/09/2026**, contra o critério de pronto do
 plano §5. Rotas só compõem, as quatro APIs têm schema Zod, erro é decidido por
@@ -556,6 +633,11 @@ coisa a fazer, antes de abrir o Bloco D:
 As telas 14–17 **não** são quatro rotas: todas são a mesma rota parametrizada
 `(app)/web/[sistema]`, variando só o parâmetro da coluna Rota. O app Delphi tinha três forms
 idênticos para isso (`analise §7.3.21`) — não recrie o arquivo por sistema.
+
+**As telas 13–17 já existem como placeholder** — `(app)/notificacoes.tsx` e
+`(app)/web/[sistema].tsx`, cada uma com o que migrar, o que **não** repetir do Delphi e de onde
+vem o contexto no comentário de cabeçalho do próprio arquivo. Comece lendo esse comentário; não
+crie arquivo novo ao lado.
 
 ### Fora de escopo (decisão pendente — ver §7.2)
 
@@ -595,23 +677,36 @@ Precisam de resposta do time antes de fechar as telas correspondentes.
    funcionar quando o novo contrato subir. Migração sugerida, riscos e critérios em
    [`docs/decisao-hash-senha.md`](docs/decisao-hash-senha.md).
 2. **Nativo ou web para compras e borderô.** Hoje há duas gerações de UI para a mesma coisa.
-   O índice acima assume **web**; se a decisão for nativo, as telas 14–17 mudam de natureza.
-3. **`react-native-webview`** ainda não foi instalado — é a próxima dependência, necessária
-   para as telas 14–17.
-4. **Sessão na WebView.** O app original passa o JWT no fragmento da URL, onde ele fica no
-   histórico e no cache. Definir o novo mecanismo antes de implementar as telas web. Opções
-   levantadas, com recomendação e comparação, em
-   [`docs/decisao-webview-sessao.md`](docs/decisao-webview-sessao.md) — **a decisão do time ainda
-   não foi tomada**.
-   **O D7 (revisão do Bloco C) tinha duas metades, e a do app foi fechada.** A ida da análise
-   para a rota web não passa mais pela URL: `analise-liberacao.tsx` publica sistema, sequência e
-   resposta em `bordero-abertura.store.ts`, validados por `borderoAberturaSchema`, e o
-   `router.push` leva **só** `sistema` — o texto livre do usuário deixou de existir como
-   parâmetro de rota (§4.11). **Continua em aberto** a outra metade: como sessão _e_ contexto
-   chegam ao HTML dentro da WebView, que é justamente o objeto desta decisão — a recomendação
-   do documento é um payload único por `postMessage`, sem nada na URL. Enquanto o contêiner é
-   placeholder, os dois canais existem com uma ponta só — `consumir` da ida sem chamador,
-   `publicar` da volta sem produtor: é a ordem do plano, não código morto.
+   O índice acima assume **web**, e desde 10/09/2026 essa suposição virou código: o contêiner
+   `(app)/web/[sistema]` e a feature `web-systems` existem. Continua sendo decisão do time —
+   mas agora escolher nativo significa **descartar** o Bloco D, não só mudá-lo de natureza.
+3. **`react-native-webview` — resolvido.** Instalado em 10/09/2026 na versão que o Expo SDK 57
+   fixa (`13.16.1`, de `expo/bundledNativeModules.json`). Como é módulo nativo, **exige
+   `npm run prebuild` e um dev client novo**: atualizar o bundle JS não basta.
+4. **Sessão na WebView — DECIDIDA em 10/09/2026; não é mais bloqueio.** Escolhida a opção **A′**:
+   **handshake por `postMessage`**. A página manda `sessao:solicitar` quando está pronta e o app
+   responde com **um** payload injetado (`window.__teoremaInit`) contendo sessão _e_ contexto do
+   borderô. **Nada trafega em URL** — nem token, nem `sequencia`, nem `resposta`: acaba o fragmento
+   do original (`analise §5.3`, §7.1.9) e, com ele, o `_t=<unix>`. A mesma ponte cobre os dois
+   sentidos: `bordero:retorno` (publica em `useBorderoRetornoStore` e fecha) e `navegacao:fechar`
+   substituem `app://menu` e `delphi://`. O **contrato de mensagem completo** — envelope `v`/`tipo`,
+   as quatro mensagens, o recorte de `sessao` por sistema, a regra de injeção com duplo
+   `JSON.stringify` e as regras de recepção — está em
+   [`docs/decisao-webview-sessao.md §13`](docs/decisao-webview-sessao.md). **Implemente por ele; não
+   reabra a discussão.** O **ticket de uso único** (opção C) fica como alvo para quando houver frente
+   aberta no Orion — migração de transporte, sem mudar o contrato de dados.
+   **Com isso o D7 fecha por inteiro.** A metade do app já estava feita (a análise publica em
+   `bordero-abertura.store.ts`, validado por `borderoAberturaSchema`, e o `router.push` leva **só**
+   `sistema` — §4.11); a outra metade, a travessia app → HTML, é o `contexto` do payload de
+   handshake, alimentado por `consumir(sistema)` **no mount** da rota web e guardado em `useRef`,
+   porque o store limpa na leitura e cada reload da página refaz o handshake.
+   **Implementada em 10/09/2026** (§6, telas 14–17): `features/web-systems/` tem o catálogo dos
+   quatro sistemas, o recorte de sessão por sistema, o schema das mensagens e o hook do
+   handshake; a rota liga as duas features, como manda o §4.12.
+   **O que ainda falta não é decisão nem código do app:** combinar com quem mantém o HTML a
+   pauta de §13.5 (expor `__teoremaInit`, mandar `sessao:solicitar`, parar de ler
+   `location.hash`, não persistir o token na página). Sem isso a tela abre e avisa que a página
+   não pediu a sessão.
 5. **Reserva da liberação.** O servidor aceita reservar algo que já está `'1'` com outro
    usuário, e não há TTL: a trava é fictícia (`analise §7.1.2`, `§7.1.4`). O app não corrige
    isso sozinho.
@@ -653,8 +748,9 @@ Desvios conhecidos, revisados e **aceitos por ora**: nenhum deles quebra o crit�
 plano §5 ao ponto de travar um bloco, e todos têm dono claro. Estão aqui para não serem
 redescobertos como novidade — e para não virarem padrão copiado em bloco novo.
 
-| #   | Onde                                                                                                                      | O quê                                                                                                                                                                                                                                                                                                                               | Quando pagar                                                                                                                         |
-| --- | ------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------ |
-| D4  | `use-analise-credito.ts` · `use-historico-compras.ts`                                                                     | A guarda é `enabled: empresa !== null && cliente !== null`, mas o comentário promete "sem empresa ou sem cliente não roda": **string vazia passa** e viraria `customerdataanalytics//` → 404. Não acontece hoje porque `DadosCliente` recebe `string` não-nulável e a rota pré-valida — o que deixa o `                             | null` da assinatura morto.                                                                                                           | Ao aparecer um segundo consumidor: ou cai o ` | null`, ou guarda por truthiness. |
-| D5  | `use-decidir-liberacao.ts`                                                                                                | Invalida `liberacoesKeys.all`, que por prefixo cobre também `credito(…)` e `historico(…)`: decidir uma liberação refaz a análise de crédito de todo cliente em cache. É o que a ficha C2 pede literalmente, mas é largo. **O prefixo já existe** (`liberacoesKeys.fila`, criado na E1) e o push invalida só ele; falta trocar aqui. | Numa revisão da C2 — a troca é de uma linha, mas muda o que o usuário vê depois de decidir, e isso merece ser decidido de propósito. |
-| D6  | `dados-cliente.tsx` · `campos-cliente.ts` · `cliente-titulo-card.tsx` · `liberacao-resumo.tsx` · `use-analise-credito.ts` | Nome de coluna Firebird **em comentário** fora de `schemas/`. Nenhum código depende deles: é o §5.8 do plano (citar a origem da regra) cruzando com o §5.3 (o nome não sai de `schemas/`). A letra do §5.3 está violada, o espírito não.                                                                                            | Precisa de uma decisão do time, não de um patch. Até lá, não crie **código** que leia coluna fora de `schemas/`.                     |
+| #   | Onde                                                                                                                      | O quê                                                                                                                                                                                                                                                                                                                                                                                                                                                               | Quando pagar                                                                                                                         |
+| --- | ------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------ |
+| D4  | `use-analise-credito.ts` · `use-historico-compras.ts`                                                                     | A guarda é `enabled: empresa !== null && cliente !== null`, mas o comentário promete "sem empresa ou sem cliente não roda": **string vazia passa** e viraria `customerdataanalytics//` → 404. Não acontece hoje porque `DadosCliente` recebe `string` não-nulável e a rota pré-valida — o que deixa o `                                                                                                                                                             | null` da assinatura morto.                                                                                                           | Ao aparecer um segundo consumidor: ou cai o ` | null`, ou guarda por truthiness. |
+| D5  | `use-decidir-liberacao.ts`                                                                                                | Invalida `liberacoesKeys.all`, que por prefixo cobre também `credito(…)` e `historico(…)`: decidir uma liberação refaz a análise de crédito de todo cliente em cache. É o que a ficha C2 pede literalmente, mas é largo. **O prefixo já existe** (`liberacoesKeys.fila`, criado na E1) e o push invalida só ele; falta trocar aqui.                                                                                                                                 | Numa revisão da C2 — a troca é de uma linha, mas muda o que o usuário vê depois de decidir, e isso merece ser decidido de propósito. |
+| D6  | `dados-cliente.tsx` · `campos-cliente.ts` · `cliente-titulo-card.tsx` · `liberacao-resumo.tsx` · `use-analise-credito.ts` | Nome de coluna Firebird **em comentário** fora de `schemas/`. Nenhum código depende deles: é o §5.8 do plano (citar a origem da regra) cruzando com o §5.3 (o nome não sai de `schemas/`). A letra do §5.3 está violada, o espírito não.                                                                                                                                                                                                                            | Precisa de uma decisão do time, não de um patch. Até lá, não crie **código** que leia coluna fora de `schemas/`.                     |
+| D7  | `web-system-view.tsx`                                                                                                     | A WebView roda com `incognito` e `cacheEnabled={false}` (docs/decisao-webview-sessao §9): zero resíduo entre usuários no aparelho compartilhado, ao custo de o HTML não ter armazenamento que sobreviva à tela — o que o contrato já proíbe para o token, mas vale para o resto. Some com isso o `usesCleartextTraffic`: **tenant em `http://` não abre na WebView em release no Android**, e hoje nada garante que o endereço digitado no onboarding seja `https`. | Ao primeiro web system reclamar de armazenamento, ou ao primeiro tenant sem TLS: as duas respostas são do time, não do app.          |
