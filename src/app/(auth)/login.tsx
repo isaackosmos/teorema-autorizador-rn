@@ -5,6 +5,7 @@ import { KeyboardAvoidingView, Platform, Text, TextInput, View } from 'react-nat
 
 import { SeletorUsuarioRecente } from '@/features/auth/components/seletor-usuario-recente';
 import { useLogin } from '@/features/auth/hooks/use-login';
+import { mensagemDeErroDeLogin } from '@/features/auth/lib/erro-login';
 import { loginSchema, type LoginInput } from '@/features/auth/schemas/login.schema';
 import { Button } from '@/shared/components/ui/button';
 import { Screen } from '@/shared/components/ui/screen';
@@ -72,7 +73,13 @@ export default function LoginScreen() {
           />
         </View>
 
-        {error ? <Text className="text-sm text-recusado">{error.message}</Text> : null}
+        {/* Mensagem única, decidida por status em `lib/erro-login.ts` — nunca o
+            texto cru do servidor (docs/analise §7.1.3). */}
+        {error ? (
+          <Text accessibilityRole="alert" className="text-sm text-recusado">
+            {mensagemDeErroDeLogin(error)}
+          </Text>
+        ) : null}
 
         <Button title="Entrar" loading={isPending} onPress={enviar} />
       </KeyboardAvoidingView>

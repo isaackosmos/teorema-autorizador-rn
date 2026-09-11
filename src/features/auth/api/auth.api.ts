@@ -30,7 +30,17 @@ export async function login(payload: LoginPayload, registerId: number | null) {
     ...(registerId === null ? {} : { registerid: registerId }),
   });
 
-  return loginResponseSchema.parse(data);
+  // Normalizado na borda, como em `buscarEmpresaLicenciada`: o `parse` roda
+  // **depois** do interceptor de resposta, então um payload fora do contrato
+  // subiria como `ZodError` cru e furaria o `ApiError` que a mutation promete.
+  // Os campos deste schema nunca foram vistos num payload real (🔒 B1), e é
+  // exatamente aí que a divergência vai aparecer.
+  const usuario = loginResponseSchema.safeParse(data);
+  if (!usuario.success) {
+    throw new ApiError(502, 'Resposta inesperada do servidor no login.', data);
+  }
+
+  return usuario.data;
 }
 
 /** Testa um endereço de servidor. Devolve `false` em vez de lançar. */

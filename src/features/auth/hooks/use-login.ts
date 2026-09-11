@@ -6,7 +6,9 @@ import { useHistoricoUsuariosStore } from '@/features/auth/stores/historico-usua
 import { useSessionStore } from '@/shared/stores/session.store';
 import { DeviceStatus } from '@/shared/types/session.types';
 
+import type { LoginResponse } from '@/features/auth/schemas/auth.schema';
 import type { LoginPayload } from '@/features/auth/schemas/login.schema';
+import type { ApiError } from '@/shared/lib/http/errors';
 
 /**
  * Login no servidor do tenant.
@@ -21,7 +23,9 @@ export function useLogin() {
   const setDevice = useSessionStore((s) => s.setDevice);
   const registrarAcesso = useHistoricoUsuariosStore((s) => s.registrarAcesso);
 
-  return useMutation({
+  // O erro sai tipado para a tela porque `login()` normaliza os dois caminhos
+  // de falha na borda — HTTP pelo interceptor, contrato pelo `safeParse`.
+  return useMutation<LoginResponse, ApiError, LoginPayload>({
     // O aparelho pode não estar registrado ainda: é este login que autoriza o
     // registro (o servidor central exige `userlogin`/`userid`), e a API omite
     // o `registerid` quando ele não existe — igual ao original.
