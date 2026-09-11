@@ -1,0 +1,56 @@
+name: Sync do Notion
+
+# Roda depois do push — o momento em que você fecha tarefa ou fecha o dia.
+# Não roda em pull request: o placar só vale quando entra na branch principal.
+on:
+  push:
+    branches: [main, master]
+  workflow_dispatch:
+    inputs:
+      dry_run:
+        description: 'Só mostrar o que mudaria, sem escrever no Notion'
+        type: boolean
+        default: false
+
+# Dois pushes seguidos não podem escrever no Notion ao mesmo tempo: o último ganha.
+concurrency:
+  group: sync-notion
+  cancel-in-progress: false
+
+jobs:
+  sincronizar:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0 # o intervalo de commits do push precisa do histórico
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      - name: Sincronizar o placar com o Notion
+        env:
+          NOTION_TOKEN: ${{ secrets.NOTION_TOKEN }}
+          SYNC_RANGE: ${{ github.event.before }}..${{ github.sha }}
+        run: node tools/sync-notion.mjs ${{ inputs.dry_run && '--dry-run' || '' }}
+
+      - name: Gerar docs/status.html
+        env:
+          SYNC_RANGE: ${{ github.event.before }}..${{ github.sha }}
+        run: node tools/gerar-status-html.mjs
+
+      - name: Comitar o status.html se ele mudou
+        if: ${{ !inputs.dry_run }}
+        run: |
+          if git diff --quiet -- docs/status.html; then
+            echo "status.html não mudou."
+            exit 0
+          fi
+          git config user.name  'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add docs/status.html
+          git commit -m 'docs: atualiza o placar em status.html [skip ci]'
+          git push

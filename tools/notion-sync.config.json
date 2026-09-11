@@ -1,0 +1,27 @@
+{
+  "paginaProjeto": "3d72f6c7-cfd4-8157-821d-e5678da0efa6",
+  "databases": {
+    "telas": "197445cf-abba-4cac-8377-995125622b3b",
+    "bloqueios": "ac439def-ade7-4ee2-9d9c-0c1ceb122839",
+    "tarefas": "d1812d7d-ab9a-45dc-8ffb-9ab589382f3f",
+    "morningBrief": "02f8caf8-d6de-49f2-ba6a-c68ac9046f62"
+  },
+
+  "//": "Mapa das linhas da tabela 'Infraestrutura transversal' da §6 para a Chave da database Telas. A chave da esquerda é casada por prefixo, sem acento e em minúsculas — mude o texto da §6 e o casamento sobrevive, desde que o começo continue igual.",
+  "mapaInfra": {
+    "clientes http": "infra-http-clients",
+    "sessao persistida em mmkv": "infra-sessao-mmkv",
+    "query client": "infra-query-retry",
+    "componentes base": "infra-componentes-base",
+    "chrome da area autenticada": "infra-chrome-app",
+    "tokens de tema": "infra-tokens-tema",
+    "fallback primario": "infra-fallback-endereco",
+    "push notification": "infra-push",
+    "cache offline de empresas": "infra-cache-empresas",
+    "relato de erro": "infra-observabilidade",
+    "testes automatizados": "infra-testes"
+  },
+
+  "//marcadorOrion": "Escreva [orion-ok] na coluna Status da §6 quando a tela tiver sido exercitada contra um Orion real. O sync marca a checkbox e apaga o marcador do texto da Observação.",
+  "marcadorOrion": "[orion-ok]"
+}
