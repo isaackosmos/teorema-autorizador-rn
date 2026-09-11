@@ -754,3 +754,111 @@ redescobertos como novidade — e para não virarem padrão copiado em bloco nov
 | D5  | `use-decidir-liberacao.ts`                                                                                                | Invalida `liberacoesKeys.all`, que por prefixo cobre também `credito(…)` e `historico(…)`: decidir uma liberação refaz a análise de crédito de todo cliente em cache. É o que a ficha C2 pede literalmente, mas é largo. **O prefixo já existe** (`liberacoesKeys.fila`, criado na E1) e o push invalida só ele; falta trocar aqui.                                                                                                                                 | Numa revisão da C2 — a troca é de uma linha, mas muda o que o usuário vê depois de decidir, e isso merece ser decidido de propósito. |
 | D6  | `dados-cliente.tsx` · `campos-cliente.ts` · `cliente-titulo-card.tsx` · `liberacao-resumo.tsx` · `use-analise-credito.ts` | Nome de coluna Firebird **em comentário** fora de `schemas/`. Nenhum código depende deles: é o §5.8 do plano (citar a origem da regra) cruzando com o §5.3 (o nome não sai de `schemas/`). A letra do §5.3 está violada, o espírito não.                                                                                                                                                                                                                            | Precisa de uma decisão do time, não de um patch. Até lá, não crie **código** que leia coluna fora de `schemas/`.                     |
 | D7  | `web-system-view.tsx`                                                                                                     | A WebView roda com `incognito` e `cacheEnabled={false}` (docs/decisao-webview-sessao §9): zero resíduo entre usuários no aparelho compartilhado, ao custo de o HTML não ter armazenamento que sobreviva à tela — o que o contrato já proíbe para o token, mas vale para o resto. Some com isso o `usesCleartextTraffic`: **tenant em `http://` não abre na WebView em release no Android**, e hoje nada garante que o endereço digitado no onboarding seja `https`. | Ao primeiro web system reclamar de armazenamento, ou ao primeiro tenant sem TLS: as duas respostas são do time, não do app.          |
+
+---
+
+## 10. Convenção de commit
+
+O commit não é só histórico: é **a entrada da automação** que atualiza o Notion e o brief. Um
+commit fora do formato não quebra nada visivelmente — ele só não aparece no Notion, o que é pior,
+porque ninguém percebe.
+
+### Forma
+
+```
+<tipo>(<escopo>): <assunto>
+
+<corpo — por que, não o que>
+
+Ficha: <A1…F4>
+Notion-ID: <id da página da tarefa>
+Status: <pronto | parcial>
+```
+
+- **tipo**: `feat` · `fix` · `refactor` · `docs` · `chore` · `test`
+- **escopo**: a feature (`auth`, `liberacoes`, `push`, `web-systems`, `empresa`, `notificacoes`)
+  ou a camada (`shared`, `app`, `tools`)
+- **assunto**: imperativo, português, até 72 caracteres, sem ponto final
+- **corpo**: a decisão e a razão dela. O diff já mostra o que mudou; ele não mostra por quê.
+  Commit trivial pode não ter corpo — commit que fecha ficha sempre tem.
+
+### Os trailers
+
+São _git trailers_ de verdade (chave, dois-pontos, espaço, valor, no último parágrafo, sem linha
+em branco entre eles). Isso é o que torna a leitura confiável:
+
+```bash
+git log --format='%H%x09%(trailers:key=Ficha,valueonly,separator=,)%x09%(trailers:key=Status,valueonly)'
+```
+
+| Trailer     | Quando entra                        | Regra                                                                         |
+| ----------- | ----------------------------------- | ----------------------------------------------------------------------------- |
+| `Ficha`     | Todo commit que toca uma ficha      | Um id só. Commit que mexe em duas fichas é commit que devia ser dois.         |
+| `Notion-ID` | Quando existe tarefa correspondente | **Omitir** se não existir. Id inventado quebra a automação em silêncio.       |
+| `Status`    | Junto com `Ficha`                   | `pronto` só se o §6 virou ✅. Se virou 🟨 (falta coisa de fora), é `parcial`. |
+
+### Regras
+
+1. **A linha do §6 é atualizada no mesmo commit** que fecha a tela. É o item 9 do critério de
+   pronto do plano, e é o que impede o placar de descolar do código.
+2. Um commit, uma ficha. Se você não consegue escrever um `Ficha:` só, o commit está grande demais.
+3. `--no-verify` só em emergência de verdade, e o próximo commit conserta o que foi pulado.
+4. Dívida nova entra na §9 **no commit que a cria**, não "depois".
+
+### Exemplo
+
+```
+feat(push): invalidar a fila por tipo em vez de liberacoesKeys.all
+
+Com push, quem dispara a invalidação passa a ser o servidor, não o usuário.
+liberacoesKeys.all é prefixo de credito() e historico(), então cada
+notificação recebida refazia a análise de crédito de todo cliente em cache —
+a dívida D5 deixaria de ser dívida e viraria defeito.
+
+A ligação mora em app/(app)/_layout.tsx: features/push não importa
+liberacoesKeys, que seria feature importando feature (§2).
+
+Ficha: E1
+Notion-ID: 2f1a3b4c5d6e7f8091a2b3c4d5e6f708
+Status: parcial
+```
+
+---
+
+## 11. Fluxo de trabalho com Claude Code
+
+O repositório é a fonte da verdade do **código**; o `CLAUDE.md §6` é a do **status**; o Notion é a
+do **que fazer hoje**. Nenhum dos três manda nos outros dois — e é por isso que o cruzamento é o
+primeiro passo do dia, não uma conferência eventual.
+
+### O ciclo
+
+| Momento         | Comando         | O que acontece                                                            |
+| --------------- | --------------- | ------------------------------------------------------------------------- |
+| Começo do dia   | `/dia`          | Cruza Notion × plano × §6 × `git log`. Não escreve código.                |
+| Por ficha       | `/ficha <id>`   | Carrega ficha, §5, §2, §8, §9 e a análise citada. Planeja. Espera o aval. |
+| Antes do commit | `/fechar-ficha` | Portões, `@revisor`, critério §5 item a item, §6 atualizado, commit.      |
+| Fim do dia      | `/diario`       | `docs/diario/AAAA-MM-DD.md`: decisões, achados, primeiro passo de amanhã. |
+
+**Uma sessão, uma ficha.** `/clear` entre fichas. Contexto de ficha anterior faz o modelo repetir
+padrão que não vale ali — e este projeto tem seis features com convenções parecidas mas não iguais.
+
+### Modo plano
+
+`/ficha` planeja antes de escrever. Aprove o plano lendo os **schemas** e a **lista de arquivos**:
+é onde os erros caros aparecem. Plano que não diz que payload entra e que tipo sai não é plano.
+
+### Portões
+
+`npm run typecheck && npm run lint`, projeto inteiro, antes de todo commit. O `pre-commit` só vê os
+arquivos staged; o `pre-push` só roda o `typecheck`. O hook de `PostToolUse` passa o ESLint no
+arquivo recém-editado — é feedback imediato, não portão.
+
+**Enquanto não houver runner de teste, nenhum ✅ significa "funciona".** Significa "atende ao
+critério". A distinção está na nota ¹ da §6 e continua valendo.
+
+### O revisor
+
+`@revisor` é subagente com contexto próprio. Ele não escreveu o código e não tem apego a ele. Rode
+antes de todo commit que feche ficha — a revisão de 04/09/2026 pegou três desvios manualmente, e os
+três eram do tipo que o autor não vê.
