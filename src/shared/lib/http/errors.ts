@@ -9,13 +9,22 @@ import { isAxiosError } from 'axios';
  * (docs/analise §7.1.3). Aqui a decisão é sempre por `status`.
  */
 export class ApiError extends Error {
-  constructor(
-    readonly status: number,
-    message: string,
-    readonly payload?: unknown,
-  ) {
+  /**
+   * Campos declarados e atribuídos no corpo do construtor, e **não** como
+   * parameter properties (`constructor(readonly status: number, …)`): o
+   * type-stripping do Node recusa essa sintaxe com
+   * `ERR_UNSUPPORTED_TYPESCRIPT_SYNTAX`, e é ele que roda `npm test` e o
+   * `probe-orion`. Encolher isso de volta quebra os dois — o comportamento é
+   * idêntico, só a sintaxe é que não sobrevive fora do Babel.
+   */
+  readonly status: number;
+  readonly payload?: unknown;
+
+  constructor(status: number, message: string, payload?: unknown) {
     super(message);
     this.name = 'ApiError';
+    this.status = status;
+    this.payload = payload;
   }
 
   /** 4xx: erro de negócio/entrada — não adianta repetir a requisição. */

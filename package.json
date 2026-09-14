@@ -31,6 +31,7 @@
     "zustand": "^5.0.15"
   },
   "devDependencies": {
+    "@types/node": "24.13.4",
     "@types/react": "~19.2.2",
     "babel-preset-expo": "~57.0.9",
     "eslint": "^9.39.5",
@@ -52,7 +53,9 @@
     "lint:fix": "eslint . --fix",
     "format": "prettier --write .",
     "format:check": "prettier --check .",
-    "typecheck": "tsc --noEmit",
+    "typecheck": "tsc --noEmit && tsc -p tsconfig.test.json --noEmit",
+    "test": "node --import ./tools/ts-alias-hook.mjs --test \"src/**/*.test.ts\"",
+    "test:watch": "node --import ./tools/ts-alias-hook.mjs --test --watch \"src/**/*.test.ts\"",
     "doctor": "npx --yes expo-doctor@latest",
     "prepare": "husky"
   },
@@ -60,5 +63,8 @@
   "overrides": {
     "react-dom": "$react-dom"
   },
-  "description": "Reescrita em React Native (Expo) do app Teorema Autorizador (Delphi/FMX)"
+  "description": "Reescrita em React Native (Expo) do app Teorema Autorizador (Delphi/FMX)",
+  "engines": {
+    "node": ">=22.18"
+  }
 }

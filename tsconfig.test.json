@@ -1,0 +1,21 @@
+{
+  // Os testes rodam no Node (`npm test`), não no bundle — e só eles enxergam
+  // os tipos do Node. Manter `@types/node` fora do `tsconfig.json` do app é o
+  // que faz `Buffer.from(...)` numa tela continuar sendo erro de compilação:
+  // ele compilaria e quebraria no aparelho.
+  "extends": "./tsconfig.json",
+  "compilerOptions": {
+    "types": ["node"]
+  },
+  // `include` substitui o do base, então os `.d.ts` ambientes precisam voltar
+  // à mão: sem eles, o primeiro teste que importar um `.tsx` quebraria neste
+  // pass por falta de `nativewind-env`, e não pelo que o teste afirma.
+  "include": [
+    "src/**/*.test.ts",
+    "expo-env.d.ts",
+    "global.d.ts",
+    "nativewind-env.d.ts",
+    ".expo/types/**/*.ts"
+  ],
+  "exclude": ["node_modules"]
+}

@@ -498,13 +498,14 @@ notificação leva ao destino correspondente.
 
 ### Bloco F — Resiliência e qualidade (transversal)
 
-| #   | Item                                     | Origem / § | O que fazer                                                                                                                                    |
-| --- | ---------------------------------------- | ---------- | ---------------------------------------------------------------------------------------------------------------------------------------------- |
-| F1  | Fallback primário → secundário → offline | §3.1       | Resolver no `tenantApi` a cada requisição, gravando o resultado em `device.serverUrlActive`; sem duplicar o teste em cada tela                 |
-| F2  | Cache offline de empresas                | §3.1       | Substituto da tabela `COMPANYS` do SQLite: persistir a lista no MMKV para o login offline                                                      |
-| F3  | Erro tipado ponta a ponta                | §7.1.3     | Auditar cada tratamento de erro: decisão sempre por `ApiError.status`, nunca por texto                                                         |
-| F4  | Testes automatizados                     | §1         | O original **não tem nenhum**. Começar pelos schemas Zod (tradução de payload) e pelos hooks de mutação — é onde um erro silencioso custa caro |
-| F5  | Preferências de UI                       | §7.3.25    | O original guardava a ordenação preferida num `UPDATE` sem `WHERE` numa tabela de uma linha. Aqui é uma chave no MMKV                          |
+| #   | Item                                     | Origem / § | O que fazer                                                                                                                                                                                             |
+| --- | ---------------------------------------- | ---------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| F1  | Fallback primário → secundário → offline | §3.1       | Resolver no `tenantApi` a cada requisição, gravando o resultado em `device.serverUrlActive`; sem duplicar o teste em cada tela                                                                          |
+| F2  | Cache offline de empresas                | §3.1       | Substituto da tabela `COMPANYS` do SQLite: persistir a lista no MMKV para o login offline                                                                                                               |
+| F3  | Erro tipado ponta a ponta                | §7.1.3     | Auditar cada tratamento de erro: decisão sempre por `ApiError.status`, nunca por texto                                                                                                                  |
+| F4  | Testes automatizados — fora do React     | §1         | O original **não tem nenhum**. Runner `node --test` sobre o `ts-alias-hook`; schemas Zod (tradução de payload), mapa de erro e o guarda de origem da WebView — é onde um erro silencioso custa caro     |
+| F4b | Testes automatizados — hooks             | §1         | Hook de mutação, ciclo de vida da reserva e invalidação. Exige renderizador (jest-expo + testing-library) e mock de `react-native-mmkv`/Nitro: **é um segundo runner**, e por isso ficha própria (§5.8) |
+| F5  | Preferências de UI                       | §7.3.25    | O original guardava a ordenação preferida num `UPDATE` sem `WHERE` numa tabela de uma linha. Aqui é uma chave no MMKV                                                                                   |
 
 ---
 

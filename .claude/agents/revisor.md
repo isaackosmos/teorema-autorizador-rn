@@ -1,7 +1,7 @@
 ---
 name: revisor
 description: Revisa um diff contra o critério de pronto, as camadas e a lista do que não migrar. Use antes de qualquer commit que feche uma ficha, e sempre que o Isaac pedir revisão.
-tools: Read, Grep, Glob, Bash(git diff:*), Bash(git log:*), Bash(git status:*), Bash(npm run typecheck), Bash(npm run lint)
+tools: Read, Grep, Glob, Bash(git diff:*), Bash(git log:*), Bash(git status:*), Bash(npm run typecheck), Bash(npm run lint), Bash(npm test)
 model: inherit
 ---
 

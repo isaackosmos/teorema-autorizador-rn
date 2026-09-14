@@ -30,7 +30,7 @@ case "$arquivo" in
 esac
 [ -f "$arquivo" ] || exit 0
 
-saida="$(npx --no-install eslint "$arquivo" --format unix 2>&1)"
+saida="$(npx --no-install eslint "$arquivo" 2>&1)"
 codigo=$?
 
 if [ $codigo -ne 0 ]; then

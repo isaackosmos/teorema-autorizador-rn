@@ -7,6 +7,13 @@ module.exports = defineConfig([
   expoConfig,
   eslintConfigPrettier,
   {
+    // Arquivo de teste é uma lista de casos, não uma função: o limite de
+    // linhas do §5.1 mede complexidade, e cortar um `describe` em dois só
+    // para caber espalharia o contrato de um módulo por dois arquivos.
+    files: ['**/*.test.ts'],
+    rules: { 'max-lines-per-function': 'off' },
+  },
+  {
     ignores: ['dist/*', 'android/*', 'ios/*', '.expo/*', 'node_modules/*'],
   },
   {

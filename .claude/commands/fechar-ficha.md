@@ -10,13 +10,14 @@ Em ordem. Se um passo falhar, **pare nele** — não siga para o commit conserta
 ## 1. Portões
 
 ```bash
-npm run typecheck && npm run lint
+npm run typecheck && npm run lint && npm test
 ```
 
-Os dois, sobre o projeto inteiro. O `pre-commit` só olha os arquivos staged e o `pre-push` só roda
-o `typecheck` — nenhum dos dois substitui isto.
+Os três, sobre o projeto inteiro. O `pre-commit` só olha os arquivos staged e o `pre-push` roda
+`typecheck` + `test`, mas não o `lint` — nenhum dos dois substitui isto.
 
-Se houver runner de teste instalado, rode a suíte também.
+O `typecheck` são dois passes: o do app e o `tsconfig.test.json`. `npm test` é o `node --test`
+sobre `src/**/*.test.ts` (CLAUDE.md §1) — ele cobre o que roda fora do React, não hook nem tela.
 
 ## 2. Revisão
 
