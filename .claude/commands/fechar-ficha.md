@@ -17,7 +17,8 @@ Os três, sobre o projeto inteiro. O `pre-commit` só olha os arquivos staged e 
 `typecheck` + `test`, mas não o `lint` — nenhum dos dois substitui isto.
 
 O `typecheck` são dois passes: o do app e o `tsconfig.test.json`. `npm test` é o `node --test`
-sobre `src/**/*.test.ts` (CLAUDE.md §1) — ele cobre o que roda fora do React, não hook nem tela.
+sobre `src/**/*.test.ts` (CLAUDE.md §1) — cobre schema, mapa de erro e hook de escrita. **Tela não**:
+isso precisaria do renderer do React Native.
 
 ## 2. Revisão
 

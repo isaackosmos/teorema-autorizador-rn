@@ -12,6 +12,8 @@
   // pass por falta de `nativewind-env`, e não pelo que o teste afirma.
   "include": [
     "src/**/*.test.ts",
+    "src/shared/lib/testing/**/*.ts",
+    "src/shared/lib/testing/**/*.tsx",
     "expo-env.d.ts",
     "global.d.ts",
     "nativewind-env.d.ts",

@@ -41,6 +41,42 @@ module.exports = defineConfig([
               group: ['../../features/*', '../../../*'],
               message: 'Use o alias `@/` em vez de caminhos relativos profundos.',
             },
+            {
+              // `lib/testing/` monta hook, troca o adapter do axios e stuba
+              // módulo nativo. Nada disso pode entrar no bundle.
+              //
+              // Os relativos estão na lista porque o alias sozinho não fecha a
+              // porta: quem mora dentro de `shared/lib/` alcançaria o harness
+              // com `./testing/…`, e é justamente ali que ele mora.
+              group: [
+                '@/shared/lib/testing',
+                '@/shared/lib/testing/*',
+                './testing',
+                './testing/*',
+                '../testing',
+                '../testing/*',
+                '../*/testing/*',
+              ],
+              message: 'Infraestrutura de teste. Só arquivo `*.test.ts` importa daqui.',
+            },
+          ],
+        },
+      ],
+    },
+  },
+  {
+    // Os testes são justamente quem pode — mas só desta regra: os caminhos
+    // relativos profundos continuam proibidos aqui como em todo o resto.
+    files: ['**/*.test.{ts,tsx}', 'src/shared/lib/testing/**'],
+    rules: {
+      'no-restricted-imports': [
+        'error',
+        {
+          patterns: [
+            {
+              group: ['../../features/*', '../../../*'],
+              message: 'Use o alias `@/` em vez de caminhos relativos profundos.',
+            },
           ],
         },
       ],
