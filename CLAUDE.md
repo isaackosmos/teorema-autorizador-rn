@@ -876,6 +876,19 @@ em branco entre eles). Isso é o que torna a leitura confiável:
 git log --format='%H%x09%(trailers:key=Ficha,valueonly,separator=,)%x09%(trailers:key=Status,valueonly)'
 ```
 
+**"Último parágrafo" é literal, e é onde a linha de atribuição derruba o commit.** Um
+`Co-Authored-By:` separado por linha em branco vira **ele** o último parágrafo, e `Ficha`,
+`Notion-ID` e `Status` viram texto solto no corpo. Nada falha: a mensagem continua legível, o
+`git log` continua mostrando as três linhas, e a automação simplesmente não as encontra — o modo
+de quebrar que este documento abre dizendo ser o pior. Atribuição, quando houver, entra **colada**
+ao bloco, como no exemplo abaixo.
+
+Por isso vale conferir **depois** de commitar, que é o único momento em que dá para perceber:
+
+```bash
+git log -1 --format='%(trailers:key=Ficha,valueonly)'   # vazio = a automação não vai ver
+```
+
 | Trailer     | Quando entra                        | Regra                                                                         |
 | ----------- | ----------------------------------- | ----------------------------------------------------------------------------- |
 | `Ficha`     | Todo commit que toca uma ficha      | Um id só. Commit que mexe em duas fichas é commit que devia ser dois.         |
@@ -889,6 +902,8 @@ git log --format='%H%x09%(trailers:key=Ficha,valueonly,separator=,)%x09%(trailer
 2. Um commit, uma ficha. Se você não consegue escrever um `Ficha:` só, o commit está grande demais.
 3. `--no-verify` só em emergência de verdade, e o próximo commit conserta o que foi pulado.
 4. Dívida nova entra na §9 **no commit que a cria**, não "depois".
+5. Confira os trailers depois de escrever o commit. Se saírem vazios, `git commit --amend` na hora:
+   um commit já empurrado não dá para consertar sem reescrever histórico.
 
 ### Exemplo
 
@@ -906,7 +921,11 @@ liberacoesKeys, que seria feature importando feature (§2).
 Ficha: E1
 Notion-ID: 2f1a3b4c5d6e7f8091a2b3c4d5e6f708
 Status: parcial
+Co-Authored-By: Claude Opus 5 <noreply@anthropic.com>
 ```
+
+Repare na última linha: sem linha em branco antes dela. Com uma, as três de cima deixam de ser
+trailers.
 
 ---
 
