@@ -3,7 +3,7 @@ import { describe, test } from 'node:test';
 
 import { AxiosError, AxiosHeaders } from 'axios';
 
-import { ApiError, ContractError, toApiError } from '@/shared/lib/http/errors';
+import { ApiError, ContractError, SessionError, toApiError } from '@/shared/lib/http/errors';
 
 import type { AxiosResponse } from 'axios';
 
@@ -35,6 +35,20 @@ describe('ApiError — a classificação é por status', () => {
     assert.equal(erro.isClientError, false);
     assert.equal(erro.isNetworkError, false);
     assert.deepEqual(erro.payload, { SEM_TOKEN: 1 });
+  });
+
+  test('pré-condição de sessão é 424 e não é erro de rede', () => {
+    // O ponto da dívida D9 (CLAUDE.md §9): antes isto nascia com status 0 e
+    // `isNetworkError` true, então "endereço ainda não resolvido" chegava ao
+    // login como "Verifique a conexão".
+    const erro = new SessionError('Servidor do cliente ainda não foi resolvido.');
+
+    assert.ok(erro instanceof ApiError);
+    assert.equal(erro.status, 424);
+    assert.equal(erro.isNetworkError, false);
+    // Cai em 4xx de propósito: repetir não resolve falta de pré-condição.
+    assert.equal(erro.isClientError, true);
+    assert.equal(erro.name, 'SessionError');
   });
 
   test('fora de 4xx não é erro de cliente', () => {

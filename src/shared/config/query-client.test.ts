@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 import { describe, test } from 'node:test';
 
 import { queryClient } from '@/shared/config/query-client';
-import { ApiError, ContractError } from '@/shared/lib/http/errors';
+import { ApiError, ContractError, SessionError } from '@/shared/lib/http/errors';
 
 /**
  * A política de retry lida como o TanStack Query a lê: a função que está na
@@ -26,6 +26,15 @@ describe('queryClient — o que não adianta repetir', () => {
    */
   test('resposta fora do contrato não se repete', () => {
     const erro = new ContractError('Resposta inesperada do servidor na fila de liberações.');
+
+    assert.equal(deveRepetir(erro), false);
+    assert.equal(deveRepetir(erro, 1), false);
+  });
+
+  test('pré-condição de sessão não se repete', () => {
+    // Ganho de graça da D9 (F1): enquanto isto nascia com status 0, uma tela
+    // sem endereço resolvido ia três vezes ao mesmo lugar nenhum.
+    const erro = new SessionError('Servidor do cliente ainda não foi resolvido.');
 
     assert.equal(deveRepetir(erro), false);
     assert.equal(deveRepetir(erro, 1), false);

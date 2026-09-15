@@ -60,6 +60,27 @@ export class ContractError extends ApiError {
   }
 }
 
+/**
+ * Passo anterior da sessão que não aconteceu: o aparelho ainda não resolveu o
+ * endereço do tenant, ou falta documento/usuário para a requisição fazer
+ * sentido. **Não é erro de rede** — não houve tentativa de falar com ninguém.
+ *
+ * Status 424 (Failed Dependency) porque é exatamente isso: a requisição falhou
+ * por causa de um passo anterior que não aconteceu. Inventar um status para
+ * condição que não é HTTP tem o mesmo precedente do `ContractError` acima.
+ *
+ * Duas consequências pegadas junto: `isNetworkError` volta a ser honesto — isto
+ * nascia com status 0 e virava "Verifique a conexão" no login (CLAUDE.md §9,
+ * dívida D9) — e, caindo em `isClientError`, o `queryClient` para de repetir
+ * duas vezes uma condição que repetição nenhuma resolve.
+ */
+export class SessionError extends ApiError {
+  constructor(message: string) {
+    super(424, message);
+    this.name = 'SessionError';
+  }
+}
+
 /** Extrai a mensagem que o Orion manda no corpo do erro. */
 function extractServerMessage(payload: unknown): string | undefined {
   if (typeof payload === 'string' && payload.trim() !== '') return payload;

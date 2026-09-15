@@ -238,13 +238,13 @@ o observador do menu fica **sem fetcher**, o TanStack Query rejeita por `queryFn
 
 Por `ApiError.status`, nunca por texto (`CLAUDE.md §5.11`):
 
-| Status       | O que a tela faz                                                                    |
-| ------------ | ----------------------------------------------------------------------------------- |
-| 200 com `[]` | estado vazio do `QueryState` — "Nenhuma notificação."                               |
-| 401          | **hoje não há tratamento central** — ver a ressalva logo abaixo                     |
-| 404          | o tenant deste cliente ainda não tem a rota — "indisponível", **sem** retry         |
-| 5xx          | erro com `onRetry`; a política de retry do `queryClient` já cobre                   |
-| 0            | offline; o `OfflineBanner` já avisa (ler a dívida D9 do §9 antes de encostar nisto) |
+| Status       | O que a tela faz                                                                                                                       |
+| ------------ | -------------------------------------------------------------------------------------------------------------------------------------- |
+| 200 com `[]` | estado vazio do `QueryState` — "Nenhuma notificação."                                                                                  |
+| 401          | **hoje não há tratamento central** — ver a ressalva logo abaixo                                                                        |
+| 404          | o tenant deste cliente ainda não tem a rota — "indisponível", **sem** retry                                                            |
+| 5xx          | erro com `onRetry`; a política de retry do `queryClient` já cobre                                                                      |
+| 0            | offline; o `OfflineBanner` já avisa, e desde a F1 o 0 é só rede mesmo (a D9 foi paga: pré-condição de sessão virou `SessionError` 424) |
 
 O 404 é o caso interessante: enquanto o Orion for atualizado cliente a cliente, vai existir tenant
 sem a rota. Tratar 404 como "indisponível" em vez de "erro" evita alarme falso — e é decisão por

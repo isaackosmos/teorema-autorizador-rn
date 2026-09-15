@@ -3,7 +3,7 @@ import { useRouter } from 'expo-router';
 
 import { registrarAparelho } from '@/features/auth/api/auth.api';
 import { nomeDoAparelho } from '@/features/auth/lib/aparelho';
-import { ApiError } from '@/shared/lib/http/errors';
+import { SessionError } from '@/shared/lib/http/errors';
 import { useSessionStore } from '@/shared/stores/session.store';
 import { DeviceStatus } from '@/shared/types/session.types';
 
@@ -27,15 +27,15 @@ export function useRegistrarAparelho() {
   return useMutation({
     mutationFn: (input: RegistroAparelhoPayload) => {
       if (!device.companyDocument || !device.companyCode || device.companyId === null) {
-        throw new ApiError(0, 'Documento da empresa ainda não foi resolvido.');
+        throw new SessionError('Documento da empresa ainda não foi resolvido.');
       }
       if (!device.serverUrlPrimary) {
-        throw new ApiError(0, 'Endereço do servidor ainda não foi definido.');
+        throw new SessionError('Endereço do servidor ainda não foi definido.');
       }
       // O servidor exige `userlogin` e `userid`: o registro só existe com um
       // usuário do ERP autenticado (docs/plano-migracao A3/A5).
       if (!user) {
-        throw new ApiError(0, 'Entre com seu usuário do ERP para registrar o aparelho.');
+        throw new SessionError('Entre com seu usuário do ERP para registrar o aparelho.');
       }
 
       return registrarAparelho({

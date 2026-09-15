@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 import { afterEach, describe, test } from 'node:test';
 
 import { useRegistrarAparelho } from '@/features/auth/hooks/use-registrar-aparelho';
-import { ApiError } from '@/shared/lib/http/errors';
+import { ApiError, SessionError } from '@/shared/lib/http/errors';
 import { instalarCentralFalso } from '@/shared/lib/testing/http-falso';
 import { encerrarTeste, renderizarHook } from '@/shared/lib/testing/render-hook';
 import { comAparelhoAtivo, comUsuarioLogado } from '@/shared/lib/testing/sessao-de-teste';
@@ -50,10 +50,12 @@ describe('useRegistrarAparelho — pré-condições viram ApiError sem tocar a r
       const { result } = renderizarHook(() => useRegistrarAparelho());
 
       await assert.rejects(result.current.mutateAsync(FORMULARIO), (erro: unknown) => {
-        assert.ok(erro instanceof ApiError);
-        // Dívida D9 (CLAUDE.md §9): este 0 é indistinguível de "sem rede" para
-        // quem só olha `isNetworkError`. Fixado aqui como está.
-        assert.equal(erro.status, 0);
+        assert.ok(erro instanceof SessionError);
+        // Dívida D9 paga na F1: pré-condição de sessão tem status próprio, e
+        // não mais o 0 que se passava por "sem rede" para quem olha
+        // `isNetworkError`.
+        assert.equal(erro.status, 424);
+        assert.equal(erro.isNetworkError, false);
         assert.match(erro.message, caso.trecho);
         return true;
       });

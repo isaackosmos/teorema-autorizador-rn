@@ -18,6 +18,8 @@ export interface Requisicao {
   metodo: string;
   url: string;
   corpo?: unknown;
+  /** Endereço que a requisição de fato usou — é o que prova o failover da F1. */
+  baseURL?: string;
 }
 
 /** O que o adapter deve responder à próxima requisição. */
@@ -77,6 +79,7 @@ export function instalarServidorFalso(
       metodo: (config.method ?? 'get').toUpperCase(),
       url: config.url ?? '',
       corpo: config.data,
+      baseURL: config.baseURL,
     };
     requisicoes.push(requisicao);
 

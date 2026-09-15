@@ -6,7 +6,7 @@ import {
   motivoDoErroDeLogin,
   MotivoLoginFalhou,
 } from '@/features/auth/lib/erro-login';
-import { ApiError, ContractError } from '@/shared/lib/http/errors';
+import { ApiError, ContractError, SessionError } from '@/shared/lib/http/errors';
 
 /**
  * Contrato do único ponto do app que decide por que o login não passou
@@ -28,10 +28,21 @@ describe('motivoDoErroDeLogin — a decisão é por status', () => {
   });
 
   test('status 0 é rede', () => {
-    // Dívida D9 do CLAUDE.md §9: o mesmo 0 também significa "servidor do
-    // cliente ainda não resolvido". Fixado aqui como está, para que separar os
-    // dois seja uma mudança visível e não um efeito colateral.
     assert.equal(motivoDoErroDeLogin(erro(0)), MotivoLoginFalhou.Rede);
+  });
+
+  test('pré-condição de sessão não é rede', () => {
+    // A separação que a dívida D9 pedia, feita na F1: enquanto os dois eram
+    // status 0, "o aparelho não tem endereço" chegava ao usuário como
+    // "Verifique a conexão" — mandando olhar o wi-fi por um defeito de
+    // configuração. E não cai no genérico de 4xx: nenhum servidor recusou
+    // nada, porque a requisição não chegou a sair.
+    const semServidor = new SessionError('Servidor do cliente ainda não foi resolvido.');
+
+    assert.equal(motivoDoErroDeLogin(semServidor), MotivoLoginFalhou.SemServidor);
+    assert.notEqual(motivoDoErroDeLogin(semServidor), MotivoLoginFalhou.Rede);
+    assert.match(mensagemDeErroDeLogin(semServidor), /servidor configurado/i);
+    assert.doesNotMatch(mensagemDeErroDeLogin(semServidor), /conexão/i);
   });
 
   test('5xx é falha do servidor', () => {
@@ -142,6 +153,7 @@ describe('motivoDoErroDeLogin — o corpo só desempata 400 e 401 (dívida D8)',
  */
 const ENTRADA_POR_MOTIVO: Record<MotivoLoginFalhou, unknown> = {
   [MotivoLoginFalhou.Rede]: erro(0),
+  [MotivoLoginFalhou.SemServidor]: new SessionError('Servidor do cliente ainda não foi resolvido.'),
   [MotivoLoginFalhou.Credencial]: erro(401),
   [MotivoLoginFalhou.AparelhoSemRegistro]: erro(401, { erro: 'cadastro' }),
   [MotivoLoginFalhou.Requisicao]: erro(400),
