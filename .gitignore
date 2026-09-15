@@ -60,3 +60,8 @@ fcm-*.json
 
 # Payloads brutos do probe do Orion (dado real de cliente — nunca versionar)
 .probe-orion/
+
+# Saída de sessão do Claude Code (screenshots, arquivos de trabalho). Não é asset
+# do projeto e pode carregar dado interno: o que entrou por engano em 11b13ba eram
+# capturas do Ticket Center com número de chamado, cliente e desenvolvedor.
+Claude outputs/
