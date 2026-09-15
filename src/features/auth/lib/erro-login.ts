@@ -1,5 +1,5 @@
 import { erroLoginSchema, MotivoServidor } from '@/features/auth/schemas/erro-login.schema';
-import { ApiError } from '@/shared/lib/http/errors';
+import { ApiError, ContractError } from '@/shared/lib/http/errors';
 
 /**
  * Mapa de erro do login: o que falhou vira um motivo, e o motivo vira a
@@ -18,6 +18,7 @@ export const MotivoLoginFalhou = {
   AparelhoSemRegistro: 'aparelho-sem-registro',
   Requisicao: 'requisicao',
   Servidor: 'servidor',
+  Contrato: 'contrato',
   Desconhecido: 'desconhecido',
 } as const;
 
@@ -35,6 +36,11 @@ const MENSAGEM_LOGIN: Record<MotivoLoginFalhou, string> = {
     'O registro deste aparelho foi removido. Procure o responsável para registrá-lo novamente.',
   [MotivoLoginFalhou.Requisicao]: 'O servidor recusou o login. Confira a base selecionada.',
   [MotivoLoginFalhou.Servidor]: 'O servidor do cliente falhou. Tente novamente em instantes.',
+  // Sem "tente novamente": a resposta fora do contrato é determinística e vai
+  // chegar igual na segunda vez. É o que o 🔒 B1 vai produzir no dia em que o
+  // contrato novo subir com qualquer campo fora do lugar.
+  [MotivoLoginFalhou.Contrato]:
+    'O servidor respondeu de um jeito que este app não entende. Procure o responsável.',
   [MotivoLoginFalhou.Desconhecido]: 'Não foi possível entrar. Tente novamente.',
 };
 
@@ -64,6 +70,10 @@ function motivoDoCorpo(payload: unknown): MotivoLoginFalhou | null {
 export function motivoDoErroDeLogin(error: unknown): MotivoLoginFalhou {
   if (!(error instanceof ApiError)) return MotivoLoginFalhou.Desconhecido;
   if (error.isNetworkError) return MotivoLoginFalhou.Rede;
+
+  // Antes da faixa 5xx, e não dentro dela: `ContractError` é 502, mas repetir
+  // não muda nada — mandar "tente novamente em instantes" seria mentira (F3).
+  if (error instanceof ContractError) return MotivoLoginFalhou.Contrato;
   if (error.status >= 500) return MotivoLoginFalhou.Servidor;
 
   // 401 é inequivocamente credencial; 400 é requisição malformada, e é assim

@@ -1,5 +1,6 @@
 import { empresaListSchema } from '@/features/empresa/schemas/empresa.schema';
 import { tenantApi } from '@/shared/lib/http/client';
+import { ContractError } from '@/shared/lib/http/errors';
 import { blobToDataUri } from '@/shared/lib/image/data-uri';
 
 /**
@@ -8,7 +9,13 @@ import { blobToDataUri } from '@/shared/lib/image/data-uri';
  */
 export async function listarEmpresasDoUsuario(userCode: string) {
   const { data } = await tenantApi.get(`/v1/application/companyfromuser/${userCode}`);
-  return empresaListSchema.parse(data);
+
+  const empresas = empresaListSchema.safeParse(data);
+  if (!empresas.success) {
+    throw new ContractError('Resposta inesperada do servidor ao listar as empresas.', data);
+  }
+
+  return empresas.data;
 }
 
 /**

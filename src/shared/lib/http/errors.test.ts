@@ -3,7 +3,7 @@ import { describe, test } from 'node:test';
 
 import { AxiosError, AxiosHeaders } from 'axios';
 
-import { ApiError, toApiError } from '@/shared/lib/http/errors';
+import { ApiError, ContractError, toApiError } from '@/shared/lib/http/errors';
 
 import type { AxiosResponse } from 'axios';
 
@@ -23,6 +23,18 @@ describe('ApiError — a classificação é por status', () => {
     for (const status of [400, 401, 404, 499]) {
       assert.equal(new ApiError(status, 'x').isClientError, true, `status ${status}`);
     }
+  });
+
+  test('resposta fora do contrato é 502 e continua sendo ApiError', () => {
+    // Continua `ApiError` porque é isso que deixa a tela decidir por `status`
+    // (CLAUDE.md §4.1); é classe própria porque o retry precisa distinguir.
+    const erro = new ContractError('Resposta inesperada do servidor no login.', { SEM_TOKEN: 1 });
+
+    assert.ok(erro instanceof ApiError);
+    assert.equal(erro.status, 502);
+    assert.equal(erro.isClientError, false);
+    assert.equal(erro.isNetworkError, false);
+    assert.deepEqual(erro.payload, { SEM_TOKEN: 1 });
   });
 
   test('fora de 4xx não é erro de cliente', () => {

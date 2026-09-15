@@ -4,6 +4,7 @@ import {
 } from '@/features/liberacoes/schemas/cliente.schema';
 import { liberacaoListSchema } from '@/features/liberacoes/schemas/liberacao.schema';
 import { tenantApi } from '@/shared/lib/http/client';
+import { ContractError } from '@/shared/lib/http/errors';
 
 const BASE = '/v1/remoteauthorization';
 
@@ -18,10 +19,15 @@ const ID_INVALIDO = '0';
 export async function listarPendentes(userCode: string) {
   const { data } = await tenantApi.get(`${BASE}/searchpending/${userCode}`);
 
+  const fila = liberacaoListSchema.safeParse(data);
+  if (!fila.success) {
+    throw new ContractError('Resposta inesperada do servidor na fila de liberações.', data);
+  }
+
   // `LIBERACAO_SEQUENCIA = 0` é linha inválida: não dá para reservar nem decidir.
   // O app Delphi a listava e só reclamava no toque ("Identificador de liberação
   // inválido", docs/analise §3.3) — aqui ela não chega à tela.
-  return liberacaoListSchema.parse(data).filter((liberacao) => liberacao.id !== ID_INVALIDO);
+  return fila.data.filter((liberacao) => liberacao.id !== ID_INVALIDO);
 }
 
 /** Marca a liberação como "em análise" para este usuário. */
@@ -45,11 +51,23 @@ export async function reprovar(id: string, resposta: string): Promise<void> {
 /** Análise de crédito do cliente da liberação. `null` quando não há linha. */
 export async function buscarAnaliseCredito(empresa: string, cliente: string) {
   const { data } = await tenantApi.get(`${BASE}/customerdataanalytics/${empresa}/${cliente}`);
-  return analiseCreditoSchema.parse(data);
+
+  const analise = analiseCreditoSchema.safeParse(data);
+  if (!analise.success) {
+    throw new ContractError('Resposta inesperada do servidor na análise de crédito.', data);
+  }
+
+  return analise.data;
 }
 
 /** Títulos financeiros do cliente. */
 export async function buscarHistoricoCompras(empresa: string, cliente: string) {
   const { data } = await tenantApi.get(`${BASE}/customerpurchasehistory/${empresa}/${cliente}`);
-  return historicoComprasSchema.parse(data);
+
+  const historico = historicoComprasSchema.safeParse(data);
+  if (!historico.success) {
+    throw new ContractError('Resposta inesperada do servidor no histórico de compras.', data);
+  }
+
+  return historico.data;
 }

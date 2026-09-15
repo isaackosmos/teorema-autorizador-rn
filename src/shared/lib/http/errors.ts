@@ -38,6 +38,28 @@ export class ApiError extends Error {
   }
 }
 
+/**
+ * Resposta **2xx que o schema recusou**: o servidor respondeu, e é a resposta
+ * que está fora do contrato. Status 502 porque a falha é do outro lado.
+ *
+ * É um `ApiError` para a tela seguir decidindo por `status` (CLAUDE.md §4.1), e
+ * é classe própria por causa do retry: payload malformado é determinístico, e
+ * repetir a requisição só reproduz o mesmo corpo — cada consulta com contrato
+ * quebrado virava três idas ao servidor (CLAUDE.md §9, dívida D12). Quem lê
+ * essa distinção é `shared/config/query-client`.
+ *
+ * **Não é o mesmo que o 404 fabricado** de `buscarEmpresaLicenciada`: ali o
+ * corpo vazio é o protocolo documentado do Orion para "não encontrado"
+ * (docs/analise §7.1.8) — tem significado de negócio e não é desacordo de
+ * contrato. Os dois casos continuam separados de propósito.
+ */
+export class ContractError extends ApiError {
+  constructor(message: string, payload?: unknown) {
+    super(502, message, payload);
+    this.name = 'ContractError';
+  }
+}
+
 /** Extrai a mensagem que o Orion manda no corpo do erro. */
 function extractServerMessage(payload: unknown): string | undefined {
   if (typeof payload === 'string' && payload.trim() !== '') return payload;

@@ -6,7 +6,7 @@ import {
   motivoDoErroDeLogin,
   MotivoLoginFalhou,
 } from '@/features/auth/lib/erro-login';
-import { ApiError } from '@/shared/lib/http/errors';
+import { ApiError, ContractError } from '@/shared/lib/http/errors';
 
 /**
  * Contrato do único ponto do app que decide por que o login não passou
@@ -42,6 +42,17 @@ describe('motivoDoErroDeLogin — a decisão é por status', () => {
         `status ${status}`,
       );
     }
+  });
+
+  test('resposta fora do contrato não se confunde com falha do servidor', () => {
+    // As duas são 5xx, e é justamente por isso que o caso existe: um 502 de
+    // gateway é transitório e pede "tente novamente"; um `ContractError` é
+    // determinístico e repetir devolve o mesmo corpo (F3).
+    const foraDeContrato = new ContractError('Resposta inesperada do servidor no login.');
+
+    assert.equal(motivoDoErroDeLogin(foraDeContrato), MotivoLoginFalhou.Contrato);
+    assert.equal(motivoDoErroDeLogin(erro(502)), MotivoLoginFalhou.Servidor);
+    assert.doesNotMatch(mensagemDeErroDeLogin(foraDeContrato), /novamente/i);
   });
 
   test('401 sem corpo é credencial', () => {
@@ -135,6 +146,7 @@ const ENTRADA_POR_MOTIVO: Record<MotivoLoginFalhou, unknown> = {
   [MotivoLoginFalhou.AparelhoSemRegistro]: erro(401, { erro: 'cadastro' }),
   [MotivoLoginFalhou.Requisicao]: erro(400),
   [MotivoLoginFalhou.Servidor]: erro(500),
+  [MotivoLoginFalhou.Contrato]: new ContractError('Resposta inesperada do servidor no login.'),
   [MotivoLoginFalhou.Desconhecido]: new Error('boom'),
 };
 

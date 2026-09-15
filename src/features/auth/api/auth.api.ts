@@ -10,7 +10,7 @@ import {
 import { registroAparelhoRequestSchema } from '@/features/auth/schemas/registro-aparelho.schema';
 import { env } from '@/shared/config/env';
 import { centralApi, tenantApi } from '@/shared/lib/http/client';
-import { ApiError } from '@/shared/lib/http/errors';
+import { ApiError, ContractError } from '@/shared/lib/http/errors';
 
 import type { LoginPayload } from '@/features/auth/schemas/login.schema';
 import type { RegistroAparelhoRequest } from '@/features/auth/schemas/registro-aparelho.schema';
@@ -37,7 +37,7 @@ export async function login(payload: LoginPayload, registerId: number | null) {
   // exatamente aí que a divergência vai aparecer.
   const usuario = loginResponseSchema.safeParse(data);
   if (!usuario.success) {
-    throw new ApiError(502, 'Resposta inesperada do servidor no login.', data);
+    throw new ContractError('Resposta inesperada do servidor no login.', data);
   }
 
   return usuario.data;
@@ -102,7 +102,13 @@ export async function buscarEnderecosServidor(documento: string) {
  */
 export async function listarBases(documento: string) {
   const { data } = await tenantApi.get(`/v1/auth/setup/${somenteDigitos(documento)}`);
-  return baseDadosListSchema.parse(data);
+
+  const bases = baseDadosListSchema.safeParse(data);
+  if (!bases.success) {
+    throw new ContractError('Resposta inesperada do servidor ao listar as bases.', data);
+  }
+
+  return bases.data;
 }
 
 /**
@@ -114,9 +120,19 @@ export async function listarBases(documento: string) {
  */
 export async function registrarAparelho(input: RegistroAparelhoRequest) {
   const { data } = await centralApi.post('/v1/application/register', {
+    // `parse` cru de propósito: o que entra aqui é nosso, não do servidor —
+    // cada campo já foi conferido por `useRegistrarAparelho` antes da chamada,
+    // e falhar aqui seria defeito do app, não desacordo de contrato.
+    // A exceção conhecida são `userLogin`/`userId`, que vêm do `user` restaurado
+    // do disco sem passar por schema: é a dívida D13 do CLAUDE.md §9.
     ...registroAparelhoRequestSchema.parse(input),
     systemcode: env.systemCode,
   });
 
-  return registroResultadoSchema.parse(data);
+  const resultado = registroResultadoSchema.safeParse(data);
+  if (!resultado.success) {
+    throw new ContractError('Resposta inesperada do servidor no registro do aparelho.', data);
+  }
+
+  return resultado.data;
 }
