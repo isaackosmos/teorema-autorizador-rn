@@ -1,6 +1,6 @@
 ---
 description: Fecha a sessão escrevendo o diário do dia em docs/diario/
-allowed-tools: Bash(git log:*), Bash(git diff:*), Bash(git status:*), Read, Write, Glob
+allowed-tools: Bash(git log:*), Bash(git diff:*), Bash(git status:*), Bash(git add:*), Bash(git commit:*), Read, Write, Glob
 ---
 
 # Diário de hoje
@@ -47,3 +47,23 @@ Se a sessão foi curta ou não produziu commit, o diário é curto. Não encha.
 - Se uma decisão do diário cresceu a ponto de merecer `docs/decisao-*.md` ou uma linha na §9 do
   `CLAUDE.md`, **diga isso explicitamente** no fim — o diário não é o lugar definitivo dela.
 - Não repita o que o commit já diz. Se a linha do diário é o assunto do commit reescrito, apague.
+
+## Commit
+
+O diário não fica só no disco: **grave e commite no mesmo passo**, sem pedir confirmação. Diário
+fora do repositório não serve para o que existe — dar contexto a quem abre a sessão seguinte —, e
+foi assim que os dois primeiros ficaram três dias sem entrar no git.
+
+```bash
+git add docs/diario/AAAA-MM-DD.md && git commit
+```
+
+- Commite **só** o arquivo do diário. Se a sessão deixou outra coisa não commitada, ela é de outra
+  ficha e não entra de carona: diga isso ao Isaac e deixe fora do índice.
+- Mensagem no formato do `CLAUDE.md §10`, escopo `repo`:
+  `docs(repo): registrar o diário de AAAA-MM-DD`.
+- **Sem `Ficha`, `Notion-ID` nem `Status`**: o diário não toca `src/` nem o placar do §6, e id
+  inventado quebra a automação em silêncio. A atribuição entra **colada** ao corpo, sem linha em
+  branco extra antes dela.
+- Portões não se aplicam — o diário é `.md` e não passa por `typecheck`/`test`. O `pre-commit` roda
+  o Prettier nele pelo `lint-staged`, e é só disso que ele precisa.
