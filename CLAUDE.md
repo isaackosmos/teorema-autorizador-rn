@@ -189,7 +189,8 @@ teorema-autorizador-rn/
 │   ├── plano-migracao.md       # blocos A–F, ordem de ataque, critério de pronto
 │   ├── decisao-hash-senha.md   # bloqueio B1: senha em texto puro sobre TLS
 │   ├── decisao-webview-sessao.md # decidido: handshake postMessage; contrato em §13
-│   └── decisao-push.md         # bloqueio B7: quem entrega o push (FCM/APNs)
+│   ├── decisao-push.md         # bloqueio B7: quem entrega o push (FCM/APNs)
+│   └── decisao-notificacoes.md # bloqueio B8: de quem é a lista do sino (tela 13)
 │
 ├── tools/                      # scripts de fora do bundle (Node puro, não entram no app)
 │   ├── probe-orion.mjs         #   replay HTTP do fluxo contra um Orion real (§1)
@@ -644,7 +645,7 @@ Legenda: ⬜ pendente · 🟨 em andamento · ✅ concluído
 | 10  | Análise da liberação                          | `(app)/liberacoes/[id]`         | `TFrmLiberacoes` › `TabItemDetalhes`        | ✅¹ reserva ao abrir, devolução ao sair sem decidir, decisão com texto de resposta       |
 | 11  | Dados do cliente                              | `(app)/liberacoes/[id]/cliente` | `TFrmLiberacoes` › `TabItemDetalhesCliente` | ✅¹ crédito e títulos em duas queries com schema; campo sem valor não vira linha         |
 | 12  | Feedback da decisão                           | (parte de #10)                  | `TabItemFeedbackAceito` / `Recusado`        | ✅¹ um componente para as duas decisões, sem espera artificial antes de voltar           |
-| 13  | Notificações                                  | `(app)/notificacoes`            | `TFrmNotificacao`                           | ⬜                                                                                       |
+| 13  | Notificações                                  | `(app)/notificacoes`            | `TFrmNotificacao`                           | ⬜ 🔒 B8 — **não é falta de código: não existe fonte de dados** (§7.9)                   |
 | 14  | Web system — Pedidos de Compra                | `sistema=autcompras`            | `TFrmAutComprasWeb`                         | 🟨² handshake A′ implementado; falta o HTML expor `__teoremaInit`                        |
 | 15  | Web system — Autorização de Cotação           | `sistema=autcotacao`            | `TFrmAutCotacaoWeb`                         | 🟨² idem — mesma rota, mesmo contrato                                                    |
 | 16  | Web system — Requisição de Compra             | `sistema=reqcompras`            | `TFrmReqComprasWeb`                         | 🟨² idem, com o recorte reduzido de sessão                                               |
@@ -780,6 +781,19 @@ Precisam de resposta do time antes de fechar as telas correspondentes.
 8. **`br.inf.teorema.autorizador4`** foi mantido como identificador em Android e iOS, para o
    app novo substituir o antigo na loja. Enquanto os dois coexistirem em desenvolvimento, use
    um identificador de variante para não sobrescrever a instalação legada.
+9. **Fonte de dados do sino — 🔒 B8, aberto em 15/09/2026.** Nenhum dos dois servidores tem rota
+   de notificação: o inventário do legado (`analise §5`) cobre as duas superfícies inteiras e não
+   há nada de notificação em nenhuma delas — no original o sino mostrava um JSON literal de teste
+   (`§7.2.11`). A tela 13 é a única do índice que não é migração de nada, e é por isso que ela
+   segue ⬜ com o badge em `skipToken`. As três opções — endpoint no tenant, histórico local do que
+   o push entregou, ou sino → fila com a tela saindo do escopo — e o contrato proposto para a
+   primeira estão em [`docs/decisao-notificacoes.md`](docs/decisao-notificacoes.md).
+   **A decisão é do time; até ela chegar, não escreva o schema contra um payload que ninguém viu.**
+
+   O B8 entrou como item **9**, e não 8, de propósito: sete pontos do
+   [`decisao-push.md`](docs/decisao-push.md) citam `§7.8` querendo dizer o bundle id compartilhado,
+   e empurrá-lo para 9 publicaria sete ponteiros errados num documento que esta ficha não tem
+   motivo para tocar.
 
 ---
 

@@ -484,12 +484,24 @@ recebida com o app aberto **recarrega a tela certa** (fila de liberações ou co
 - Roteamento por notificação usa o router a partir do payload, não `se o form está instanciado então
 recarrega` — que, no original, simplesmente não fazia nada nos demais casos.
 
-#### E2 · Tela de notificações — `(app)/notificacoes`
+#### E2 · Tela de notificações — `(app)/notificacoes` 🔒 B8
 
 **Corrigir** — o original monta um **JSON literal de teste** ("Aqui vai a mensagem de testes…") e é
 isso que o usuário vê ao tocar no sino (§7.2.11). Esta tela só é migrada com fonte de dados real; se o
 servidor ainda não tem endpoint de notificações, ela permanece fora do menu em vez de exibir conteúdo
 falso.
+
+**Travada no 🔒 B8, e a trava é a própria fonte de dados.** O inventário do legado (§5 da análise)
+mostra que **nenhum dos dois servidores tem rota de notificação** — a tela 13 é a única do índice
+que não é migração de nada. O app já está no estado que esta ficha prescreve para esse caso: o badge
+é `skipToken`, o sino só aparece com `total > 0` e, portanto, a tela está fora do alcance do
+usuário. **Não há defeito a corrigir aqui; há uma fonte a definir.** As três opções (endpoint no
+tenant, histórico local do push, ou sino → fila com a tela saindo do escopo) e o contrato proposto
+para a primeira estão em [`decisao-notificacoes.md`](decisao-notificacoes.md).
+
+O que **não** se faz enquanto o B8 não cair: escrever o schema contra um payload que ninguém viu.
+Aqui o "isolar o 🔒 num arquivo só" do §1 não se aplica — o bloqueio não é uma regra dentro da
+tela, é a existência do dado.
 
 **Pronto quando** — a lista vem do servidor, o badge do chrome usa a mesma query, e tocar em uma
 notificação leva ao destino correspondente.
@@ -539,13 +551,14 @@ Confirmado na análise e reafirmado aqui para não voltar em revisão:
 
 Repetem as **Decisões em aberto** do `CLAUDE.md §7`, aqui amarradas ao bloco que travam.
 
-| 🔒  | Bloqueio                                                                                                             | Trava          | Impacto se não resolver                                                                                  |
-| --- | -------------------------------------------------------------------------------------------------------------------- | -------------- | -------------------------------------------------------------------------------------------------------- |
-| B1  | Hash da senha — decidido (texto puro + TLS); falta o Orion aceitar. [`decisao-hash-senha.md`](decisao-hash-senha.md) | A4             | **Login não funciona** enquanto o servidor comparar MD5. Segue de maior prioridade — trava o app inteiro |
-| B2  | Nativo ou web para compras e borderô                                                                                 | Bloco D        | Se a decisão for nativo, as telas 14–17 mudam de natureza e o Bloco D é reescrito                        |
-| B3  | Reserva real da liberação (situação `'1'` + TTL)                                                                     | C2             | A trava de concorrência segue fictícia; o app não pode prometer exclusividade                            |
-| B4  | Código de erro estável no servidor                                                                                   | A2, A4, C2, F3 | Mapeamento de erro continua frágil, ainda que isolado num módulo                                         |
-| B7  | Caminho de push: FCM (Android) × APNs (iOS). [`decisao-push.md`](decisao-push.md)                                    | Bloco E        | Push funciona só em uma das plataformas                                                                  |
+| 🔒  | Bloqueio                                                                                                                          | Trava          | Impacto se não resolver                                                                                   |
+| --- | --------------------------------------------------------------------------------------------------------------------------------- | -------------- | --------------------------------------------------------------------------------------------------------- |
+| B1  | Hash da senha — decidido (texto puro + TLS); falta o Orion aceitar. [`decisao-hash-senha.md`](decisao-hash-senha.md)              | A4             | **Login não funciona** enquanto o servidor comparar MD5. Segue de maior prioridade — trava o app inteiro  |
+| B2  | Nativo ou web para compras e borderô                                                                                              | Bloco D        | Se a decisão for nativo, as telas 14–17 mudam de natureza e o Bloco D é reescrito                         |
+| B3  | Reserva real da liberação (situação `'1'` + TTL)                                                                                  | C2             | A trava de concorrência segue fictícia; o app não pode prometer exclusividade                             |
+| B4  | Código de erro estável no servidor                                                                                                | A2, A4, C2, F3 | Mapeamento de erro continua frágil, ainda que isolado num módulo                                          |
+| B7  | Caminho de push: FCM (Android) × APNs (iOS). [`decisao-push.md`](decisao-push.md)                                                 | Bloco E        | Push funciona só em uma das plataformas                                                                   |
+| B8  | Fonte de dados do sino — nenhum dos dois servidores tem rota de notificação. [`decisao-notificacoes.md`](decisao-notificacoes.md) | E2             | A tela 13 não é migrável: sem fonte real, a ficha manda mantê-la fora do menu em vez de exibir dado falso |
 
 **Baixados:** 🔒 B5 (`react-native-webview` instalado em `13.16.1`) e 🔒 B6 (sessão na WebView —
 decidida na opção A′ e implementada) saíram da lista em 10/09/2026. O que restou no Bloco D não é
@@ -553,4 +566,11 @@ bloqueio de servidor: é combinar o contrato de mensagem com quem mantém o HTML
 ([`decisao-webview-sessao.md §13.5`](decisao-webview-sessao.md)).
 
 **Ordem de ataque sugerida:** B1 agora (trava tudo) → B4 e B3 durante o Bloco C → B2 antes de
-fechar o Bloco D → B7 antes do Bloco E.
+fechar o Bloco D → B7 antes do Bloco E, e B8 antes da **E2** (a E1 já está entregue e não depende
+dele; o B8 trava só a tela 13).
+
+O **B8 é novo na tabela, não na realidade**: ele já estava descrito em
+[`decisao-push.md §11`](decisao-push.md) desde 04/09/2026 como o motivo de a E2 estar parada, e o
+`skipToken` do badge existe por causa dele. Virou 🔒 em 15/09/2026 porque bloqueio que só mora no
+corpo de outro documento não aparece em nenhum levantamento — e a E2 chegou a ser aberta como se
+fosse trabalho de código.
